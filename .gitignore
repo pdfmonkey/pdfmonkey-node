@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+.env
+.env.*
+.DS_Store
+
+# Local development tooling
+.planning/
+.claude/

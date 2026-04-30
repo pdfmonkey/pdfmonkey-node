@@ -1,0 +1,327 @@
+# pdfmonkey-node
+
+> Official Node.js/TypeScript SDK for the PDFMonkey API. Generate PDFs from HTML/CSS templates. Zero runtime dependencies, dual ESM + CommonJS.
+
+## Installation
+
+```sh
+npm install pdfmonkey
+```
+
+## Quick Start
+
+```ts
+import { PDFMonkey } from 'pdfmonkey';
+
+const client = new PDFMonkey('your-api-key');
+
+// Generate a PDF synchronously (blocks until ready)
+const card = await client.documents.generateSync({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ name: 'Alice', amount: 42 }),
+});
+console.log(card.download_url);
+```
+
+## Client Configuration
+
+```ts
+const client = new PDFMonkey({
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.pdfmonkey.io/api/v1', // default
+  timeout: 30_000,    // ms, default 30s
+  maxRetries: 2,      // retries on 429/5xx, default 2
+  fetch: customFetch,  // optional custom fetch
+  logger: console,     // optional debug logger
+});
+```
+
+## Resources
+
+### Documents
+
+```ts
+// Create (starts as draft unless status: 'pending')
+const doc = await client.documents.create({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ name: 'Alice' }),
+  status: 'pending',
+});
+
+// Get by ID
+const doc = await client.documents.get('doc_xxx');
+
+// Update (uses PUT)
+const updated = await client.documents.update('doc_xxx', {
+  payload: JSON.stringify({ name: 'Bob' }),
+});
+
+// Delete
+await client.documents.delete('doc_xxx');
+```
+
+#### Synchronous Generation
+
+Blocks until PDF is ready. Returns a `DocumentCard`.
+
+```ts
+const card = await client.documents.generateSync({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ invoice: 1234 }),
+});
+console.log(card.download_url);
+```
+
+#### Polling for Completion
+
+```ts
+const doc = await client.documents.create({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ data: 'value' }),
+  status: 'pending',
+});
+
+const completed = await client.documents.waitForGeneration(doc.id, {
+  interval: 2000,  // poll every 2s (default)
+  timeout: 120000, // give up after 120s (default)
+  signal: AbortSignal.timeout(30000), // optional AbortSignal
+});
+```
+
+#### Document Meta (Password & Filename)
+
+The `meta` field accepts an object (auto-serialized) or a JSON string.
+
+```ts
+await client.documents.create({
+  document_template_id: 'tpl_xxx',
+  meta: {
+    _password: 'secret123',      // encrypts PDF with AES-256
+    _filename: 'invoice-42.pdf', // sets download filename
+    customField: 'any value',    // your own metadata
+  },
+  status: 'pending',
+});
+```
+
+Works on `create`, `update`, and `generateSync`.
+
+#### DocumentStatus Type
+
+`DocumentStatus` is a union type shared by `Document` and `DocumentCard`:
+
+```ts
+type DocumentStatus = 'draft' | 'pending' | 'generating' | 'success' | 'failure' | 'error';
+```
+
+### Document Cards (read-only)
+
+```ts
+// List with filters (status accepts DocumentStatus values)
+const page = await client.documentCards.list({
+  document_template_id: 'tpl_xxx',
+  status: 'success',
+  workspace_id: 'ws_xxx',
+  updated_since: 1700000000,
+  page: 1,
+});
+
+// Get by ID
+const card = await client.documentCards.get('card_xxx');
+```
+
+### Document Templates
+
+```ts
+const page = await client.documentTemplates.list({ workspace_id: 'ws_xxx' });
+const tpl = await client.documentTemplates.get('tpl_xxx');
+const created = await client.documentTemplates.create({ identifier: 'invoice' });
+const updated = await client.documentTemplates.update('tpl_xxx', { identifier: 'receipt' });
+await client.documentTemplates.delete('tpl_xxx');
+```
+
+> **Do not set `pdf_engine_draft_id` when creating templates.** Leave it
+> undefined and the API auto-selects the latest engine — the right default
+> in nearly all cases. Override only when an end-user explicitly asks to pin
+> a specific engine version.
+
+### PDF Engines (read-only, advanced)
+
+Use only when an end-user explicitly wants to pin a template to a specific
+engine version. Otherwise leave `pdf_engine_draft_id` unset on template
+creation and the API picks the latest engine automatically.
+
+```ts
+const engines = await client.pdfEngines.list();
+// [{ id: 'eng_xxx', name: 'chromium', version: 6, deprecated_on: null }, ...]
+```
+
+### Template Folders
+
+```ts
+const page = await client.templateFolders.list();
+const folder = await client.templateFolders.get('fold_xxx');
+const created = await client.templateFolders.create({ identifier: 'invoices' });
+const updated = await client.templateFolders.update('fold_xxx', { identifier: 'reports' });
+await client.templateFolders.delete('fold_xxx');
+```
+
+### Snippets
+
+Reusable HTML partials shared across templates.
+
+```ts
+const page = await client.snippets.list();
+const snippet = await client.snippets.get('snp_xxx');
+const created = await client.snippets.create({
+  identifier: 'header',
+  code: '<div>Header</div>',
+  workspace_id: 'ws_xxx',
+});
+const updated = await client.snippets.update('snp_xxx', { code: '<div>Updated</div>' });
+await client.snippets.delete('snp_xxx');
+```
+
+### Workspaces (read-only)
+
+```ts
+const page = await client.workspaces.list();
+const ws = await client.workspaces.get('ws_xxx');
+```
+
+### Current User (read-only)
+
+```ts
+const user = await client.currentUser.get();
+// user.email, user.current_plan, user.available_documents
+```
+
+### Webhooks (RestHooks)
+
+```ts
+// Register a webhook
+const hook = await client.restHooks.create({
+  url: 'https://example.com/webhook',
+  events: ['document.done'],
+  workspace_id: 'ws_xxx',              // optional
+  document_template_ids: ['tpl_xxx'],   // optional
+});
+
+// Delete a webhook
+await client.restHooks.delete('hook_xxx');
+```
+
+#### Verify Incoming Webhooks
+
+```ts
+import { verifyWebhook } from 'pdfmonkey';
+
+const event = await verifyWebhook(
+  rawBody,                              // raw request body string
+  {
+    'svix-id': headers['svix-id'],
+    'svix-timestamp': headers['svix-timestamp'],
+    'svix-signature': headers['svix-signature'],
+  },
+  process.env.WEBHOOK_SECRET,           // with or without 'whsec_' prefix
+);
+
+event.type; // 'document.done'
+event.data; // { id: 'doc_xxx', ... }
+```
+
+## Pagination
+
+All `.list()` methods return `Page<T>`:
+
+```ts
+const page = await client.documentCards.list({ document_template_id: 'tpl_xxx' });
+
+page.data;          // readonly T[] — items on this page
+page.currentPage;   // number
+page.totalPages;    // number
+page.hasNextPage(); // boolean
+page.hasPreviousPage(); // boolean
+
+const next = await page.getNextPage();     // throws if no next page
+const prev = await page.getPreviousPage(); // throws if no previous page
+```
+
+## Error Handling
+
+All errors extend `PDFMonkeyError`.
+
+```ts
+import {
+  APIError,
+  APIConnectionError,
+  AuthenticationError,    // 401
+  NotFoundError,          // 404
+  UnprocessableEntityError, // 422
+  RateLimitError,         // 429
+  InternalServerError,    // 500+
+} from 'pdfmonkey';
+
+try {
+  await client.documents.get('doc_xxx');
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    error.status;     // 429
+    error.retryAfter; // seconds from Retry-After header, or undefined
+    error.headers;    // Response headers
+    error.body;       // Raw response body
+  }
+  if (error instanceof APIConnectionError) {
+    error.cause;      // Original network error (native Error.cause)
+  }
+}
+```
+
+Retries: the client automatically retries on 429 and 5xx errors (configurable via `maxRetries`). 401, 404, and 422 are never retried.
+
+## Key Types
+
+```ts
+import type {
+  Document,
+  DocumentCard,
+  DocumentCreateParams,
+  DocumentMeta,
+  DocumentStatus,
+  DocumentUpdateParams,
+  GenerateSyncParams,
+  WaitForGenerationOptions,
+  DocumentTemplate,
+  DocumentTemplateCard,
+  DocumentTemplateCreateParams,
+  DocumentTemplateUpdateParams,
+  DocumentTemplateListParams,
+  DocumentCardListParams,
+  TemplateFolder,
+  TemplateFolderCreateParams,
+  TemplateFolderUpdateParams,
+  Snippet,
+  SnippetCreateParams,
+  SnippetUpdateParams,
+  RestHook,
+  RestHookCreateParams,
+  Workspace,
+  CurrentUser,
+  WebhookEvent,
+  WebhookHeaders,
+  Page,
+  PaginationMeta,
+  ClientOptions,
+  RequestOptions,
+} from 'pdfmonkey';
+```
+
+## API Notes
+
+- Base URL: `https://api.pdfmonkey.io/api/v1`
+- Auth: `Authorization: Bearer <api-key>`
+- Updates use **PUT** (not PATCH)
+- Response envelope: `{ "document": {...} }`, `{ "snippets": [...], "meta": {...} }`
+- Pagination: `page[number]` query param; meta includes `current_page`, `total_pages`, `next_page`, `prev_page`
+- `payload` and `meta` are JSON-encoded strings in the API; the SDK auto-serializes `meta` objects
+- Webhooks use Svix HMAC-SHA256 signatures with 5-minute timestamp tolerance

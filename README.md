@@ -1,0 +1,227 @@
+# pdfmonkey-node
+
+Official Node.js SDK for the [PDFMonkey](https://www.pdfmonkey.io) API. Zero runtime dependencies, dual ESM + CommonJS.
+
+## Installation
+
+```sh
+npm install pdfmonkey
+```
+
+## Usage
+
+```ts
+import { PDFMonkey } from 'pdfmonkey';
+
+const client = new PDFMonkey('your-api-key');
+```
+
+### Documents
+
+```ts
+// Create a document (starts as draft)
+const doc = await client.documents.create({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ name: 'Alice', amount: 42 }),
+  status: 'pending', // set to 'pending' to start generation immediately
+});
+
+// Get a document
+const doc = await client.documents.get('doc_xxx');
+
+// Update a document
+const updated = await client.documents.update('doc_xxx', {
+  payload: JSON.stringify({ name: 'Bob' }),
+});
+
+// Delete a document
+await client.documents.delete('doc_xxx');
+```
+
+### Document Meta (Password & Filename)
+
+Use the `meta` field to password-protect or set a custom filename on generated PDFs:
+
+```ts
+const doc = await client.documents.create({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ name: 'Alice' }),
+  meta: {
+    _password: 'secret123',      // encrypts the PDF (AES-256)
+    _filename: 'invoice-42.pdf', // sets the download filename
+    customField: 'any value',    // your own metadata
+  },
+  status: 'pending',
+});
+```
+
+`meta` accepts either an object (auto-serialized to JSON) or a pre-serialized JSON string. Works on `create`, `update`, and `generateSync`.
+
+### Synchronous Generation
+
+Generate a PDF and wait for it to complete in a single request:
+
+```ts
+const card = await client.documents.generateSync({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ invoice_number: 1234 }),
+});
+
+console.log(card.download_url);
+```
+
+### Polling for Completion
+
+Create a document then poll until generation completes:
+
+```ts
+const doc = await client.documents.create({
+  document_template_id: 'tpl_xxx',
+  payload: JSON.stringify({ data: 'value' }),
+  status: 'pending',
+});
+
+const completed = await client.documents.waitForGeneration(doc.id, {
+  interval: 2000,  // poll every 2s (default)
+  timeout: 120000, // give up after 120s (default)
+  signal: AbortSignal.timeout(30000), // optional AbortSignal
+});
+
+console.log(completed.download_url);
+```
+
+### Document Status
+
+Documents and document cards share a `DocumentStatus` type:
+
+```ts
+import type { DocumentStatus } from 'pdfmonkey';
+// 'draft' | 'pending' | 'generating' | 'success' | 'failure' | 'error'
+```
+
+### Document Templates
+
+```ts
+const page = await client.documentTemplates.list({ workspace_id: 'ws_xxx' });
+const template = await client.documentTemplates.get('tpl_xxx');
+const created = await client.documentTemplates.create({ identifier: 'invoice' });
+const updated = await client.documentTemplates.update('tpl_xxx', { identifier: 'receipt' });
+await client.documentTemplates.delete('tpl_xxx');
+```
+
+> Leave `pdf_engine_draft_id` unset on `create`/`update` — the API auto-selects the latest engine. Override only when an end-user explicitly asks to pin a specific engine version (see PDF Engines below).
+
+### PDF Engines (advanced)
+
+Read-only list of available rendering engines. Most callers do not need this. Use only when an end-user explicitly wants to pin a template to a specific engine version.
+
+```ts
+const engines = await client.pdfEngines.list();
+// [{ id: 'eng_xxx', name: 'chromium', version: 6, deprecated_on: null }, ...]
+
+await client.documentTemplates.update('tpl_xxx', {
+  pdf_engine_draft_id: engines[0]!.id,
+});
+```
+
+### Pagination
+
+All list methods return a `Page<T>` with built-in navigation:
+
+```ts
+const page = await client.documentCards.list({ document_template_id: 'tpl_xxx' });
+
+console.log(page.data);        // items on this page
+console.log(page.currentPage); // 1
+console.log(page.totalPages);  // 5
+
+if (page.hasNextPage()) {
+  const next = await page.getNextPage();
+}
+```
+
+### Webhooks
+
+Register webhook endpoints:
+
+```ts
+const hook = await client.restHooks.create({
+  url: 'https://example.com/webhook',
+  events: ['document.done'],
+});
+
+await client.restHooks.delete(hook.id);
+```
+
+Verify incoming webhook signatures (Svix HMAC-SHA256):
+
+```ts
+import { verifyWebhook } from 'pdfmonkey';
+
+const event = await verifyWebhook(
+  rawBody,
+  {
+    'svix-id': req.headers['svix-id'],
+    'svix-timestamp': req.headers['svix-timestamp'],
+    'svix-signature': req.headers['svix-signature'],
+  },
+  process.env.WEBHOOK_SECRET,
+);
+
+console.log(event.type); // 'document.done'
+console.log(event.data); // { id: 'doc_xxx', ... }
+```
+
+### Other Resources
+
+```ts
+// Snippets
+const snippets = await client.snippets.list();
+await client.snippets.create({ identifier: 'header', code: '<div>Header</div>', workspace_id: 'ws_xxx' });
+
+// Template Folders
+const folders = await client.templateFolders.list();
+
+// Workspaces
+const workspaces = await client.workspaces.list();
+
+// Current User
+const user = await client.currentUser.get();
+```
+
+## Configuration
+
+```ts
+const client = new PDFMonkey({
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.pdfmonkey.io/api/v1', // default
+  timeout: 30_000,   // request timeout in ms (default: 30s)
+  maxRetries: 2,     // retry on 429/5xx (default: 2)
+  fetch: customFetch, // bring your own fetch implementation
+  logger: console,   // debug logging
+});
+```
+
+## Error Handling
+
+```ts
+import { APIConnectionError, AuthenticationError, NotFoundError, RateLimitError } from 'pdfmonkey';
+
+try {
+  await client.documents.get('doc_xxx');
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    // Invalid API key (401)
+  } else if (error instanceof NotFoundError) {
+    // Resource not found (404)
+  } else if (error instanceof RateLimitError) {
+    console.log(error.retryAfter); // seconds from Retry-After header
+  } else if (error instanceof APIConnectionError) {
+    console.log(error.cause); // original network error (native Error.cause)
+  }
+}
+```
+
+## License
+
+MIT

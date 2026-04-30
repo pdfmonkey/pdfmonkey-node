@@ -1,0 +1,112 @@
+import type { PDFMonkey, QueryValue, RequestOptions } from './client.js';
+import { PDFMonkeyError } from './error.js';
+
+export interface PaginationMeta {
+  readonly current_page: number;
+  readonly total_pages: number;
+  readonly next_page: number | null;
+  readonly prev_page: number | null;
+}
+
+/** A page of results from a paginated list endpoint. */
+export class Page<T> {
+  readonly data: readonly T[];
+  readonly meta: PaginationMeta;
+  readonly #client: PDFMonkey;
+  readonly #path: string;
+  readonly #query: Record<string, QueryValue>;
+  readonly #extractKey: string;
+
+  constructor(
+    client: PDFMonkey,
+    path: string,
+    query: Record<string, QueryValue>,
+    data: T[],
+    meta: PaginationMeta,
+    extractKey: string,
+  ) {
+    this.#client = client;
+    this.#path = path;
+    this.#query = query;
+    this.data = data;
+    this.meta = meta;
+    this.#extractKey = extractKey;
+  }
+
+  get currentPage(): number {
+    return this.meta.current_page;
+  }
+
+  get totalPages(): number {
+    return this.meta.total_pages;
+  }
+
+  /** Whether there is a next page of results. */
+  hasNextPage(): boolean {
+    return this.meta.next_page !== null;
+  }
+
+  /** Whether there is a previous page of results. */
+  hasPreviousPage(): boolean {
+    return this.meta.prev_page !== null;
+  }
+
+  /** Fetch the next page. Throws if no next page exists. */
+  async getNextPage(): Promise<Page<T>> {
+    if (!this.hasNextPage()) {
+      throw new PDFMonkeyError('No next page available');
+    }
+    return fetchPage<T>(this.#client, this.#path, this.#extractKey, {
+      query: { ...this.#query, 'page[number]': this.meta.next_page },
+    });
+  }
+
+  /** Fetch the previous page. Throws if no previous page exists. */
+  async getPreviousPage(): Promise<Page<T>> {
+    if (!this.hasPreviousPage()) {
+      throw new PDFMonkeyError('No previous page available');
+    }
+    return fetchPage<T>(this.#client, this.#path, this.#extractKey, {
+      query: { ...this.#query, 'page[number]': this.meta.prev_page },
+    });
+  }
+
+  /** Iterate over items in this page. */
+  [Symbol.iterator](): IterableIterator<T> {
+    return this.data[Symbol.iterator]();
+  }
+
+  /** Iterate over all items across all pages (auto-fetches next pages). */
+  async *[Symbol.asyncIterator](): AsyncIterableIterator<T> {
+    let page: Page<T> = this;
+    while (true) {
+      for (const item of page.data) {
+        yield item;
+      }
+      if (!page.hasNextPage()) break;
+      page = await page.getNextPage();
+    }
+  }
+}
+
+type PaginatedResponse = Record<string, unknown> & {
+  meta: PaginationMeta;
+};
+
+/** Fetch a paginated list endpoint and return a `Page<T>`. */
+export async function fetchPage<T>(
+  client: PDFMonkey,
+  path: string,
+  extractKey: string,
+  opts?: RequestOptions,
+): Promise<Page<T>> {
+  const response = await client.get<PaginatedResponse>(path, opts);
+  const data = response[extractKey];
+  if (!Array.isArray(data)) {
+    throw new PDFMonkeyError(`Invalid paginated response: expected "${extractKey}" to be an array`);
+  }
+  if (!response.meta || typeof response.meta.current_page !== 'number') {
+    throw new PDFMonkeyError('Invalid paginated response: missing or malformed "meta"');
+  }
+  return new Page<T>(client, path, opts?.query ?? {}, data as T[], response.meta, extractKey);
+}
