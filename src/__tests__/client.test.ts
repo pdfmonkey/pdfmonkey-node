@@ -524,6 +524,48 @@ describe('PDFMonkey Client', () => {
       expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
     });
 
+    it('includes per-request headers, overriding defaults', async () => {
+      const fetch = mockFetch(200, { id: '123' });
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        defaultHeaders: { 'X-Trace-Id': 'global' },
+      });
+
+      await client.get('/documents/123', {
+        headers: { 'X-Trace-Id': 'per-request', 'X-One-Off': 'value' },
+      });
+
+      const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['X-Trace-Id']).toBe('per-request');
+      expect(headers['X-One-Off']).toBe('value');
+      // Auth must not be overridable through opts.headers
+      expect(headers.Authorization).toBe('Bearer sk_test');
+    });
+
+    it('sends Idempotency-Key when provided', async () => {
+      const fetch = mockFetch(201, { id: 'new' });
+      const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
+
+      await client.post('/documents', { idempotencyKey: 'idemp-abc-123' });
+
+      const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['Idempotency-Key']).toBe('idemp-abc-123');
+    });
+
+    it('does not send Idempotency-Key when omitted', async () => {
+      const fetch = mockFetch(201, { id: 'new' });
+      const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
+
+      await client.post('/documents');
+
+      const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['Idempotency-Key']).toBeUndefined();
+    });
+
     it('includes defaultHeaders in every request', async () => {
       const fetch = mockFetch(200, { id: '123' });
       const client = new PDFMonkey({
