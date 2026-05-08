@@ -1,4 +1,4 @@
-import type { QueryValue } from '../client.js';
+import type { QueryValue, ResourceRequestOptions } from '../client.js';
 import { fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
@@ -33,37 +33,51 @@ interface TemplateFolderResponse {
 /** Manage folders for organizing document templates. */
 export class TemplateFolders extends APIResource {
   /** List template folders. Returns a paginated result. */
-  async list(params?: TemplateFolderListParams): Promise<Page<TemplateFolder>> {
+  async list(
+    params?: TemplateFolderListParams,
+    options?: ResourceRequestOptions,
+  ): Promise<Page<TemplateFolder>> {
     const query: Record<string, QueryValue> = {};
     if (params?.page !== undefined) {
       query['page[number]'] = params.page;
     }
     return fetchPage<TemplateFolder>(this._client, '/template_folders', 'template_folders', {
+      ...options,
       query,
     });
   }
 
   /** Retrieve a template folder by ID. */
-  async get(id: string): Promise<TemplateFolder> {
+  async get(id: string, options?: ResourceRequestOptions): Promise<TemplateFolder> {
     const response = await this._client.get<TemplateFolderResponse>(
       `/template_folders/${encodeURIComponent(id)}`,
+      options,
     );
     return response.template_folder;
   }
 
   /** Create a new template folder. */
-  async create(params: TemplateFolderCreateParams): Promise<TemplateFolder> {
+  async create(
+    params: TemplateFolderCreateParams,
+    options?: ResourceRequestOptions,
+  ): Promise<TemplateFolder> {
     const response = await this._client.post<TemplateFolderResponse>('/template_folders', {
+      ...options,
       body: { template_folder: params },
     });
     return response.template_folder;
   }
 
   /** Update a template folder by ID. Uses PUT. */
-  async update(id: string, params: TemplateFolderUpdateParams): Promise<TemplateFolder> {
+  async update(
+    id: string,
+    params: TemplateFolderUpdateParams,
+    options?: ResourceRequestOptions,
+  ): Promise<TemplateFolder> {
     const response = await this._client.put<TemplateFolderResponse>(
       `/template_folders/${encodeURIComponent(id)}`,
       {
+        ...options,
         body: { template_folder: params },
       },
     );
@@ -71,7 +85,7 @@ export class TemplateFolders extends APIResource {
   }
 
   /** Delete a template folder by ID. */
-  async delete(id: string): Promise<void> {
-    await this._client.delete(`/template_folders/${encodeURIComponent(id)}`);
+  async delete(id: string, options?: ResourceRequestOptions): Promise<void> {
+    await this._client.delete(`/template_folders/${encodeURIComponent(id)}`, options);
   }
 }

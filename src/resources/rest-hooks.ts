@@ -1,3 +1,4 @@
+import type { ResourceRequestOptions } from '../client.js';
 import { APIResource } from '../resource.js';
 import type { WebhookEventType } from '../webhooks.js';
 
@@ -32,15 +33,16 @@ interface RestHookResponse {
  */
 export class RestHooks extends APIResource {
   /** Register a new webhook endpoint. */
-  async create(params: RestHookCreateParams): Promise<RestHook> {
+  async create(params: RestHookCreateParams, options?: ResourceRequestOptions): Promise<RestHook> {
     const response = await this._client.post<RestHookResponse>('/rest_hooks', {
+      ...options,
       body: { rest_hook: params },
     });
     return response.rest_hook;
   }
 
   /** Delete a webhook endpoint by ID. */
-  async delete(id: string): Promise<void> {
-    await this._client.delete(`/rest_hooks/${encodeURIComponent(id)}`);
+  async delete(id: string, options?: ResourceRequestOptions): Promise<void> {
+    await this._client.delete(`/rest_hooks/${encodeURIComponent(id)}`, options);
   }
 }

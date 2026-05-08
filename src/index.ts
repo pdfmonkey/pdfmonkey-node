@@ -5,6 +5,7 @@ export type {
   Logger,
   QueryValue,
   RequestOptions,
+  ResourceRequestOptions,
 } from './client.js';
 export { PDFMonkey } from './client.js';
 

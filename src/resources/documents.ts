@@ -1,3 +1,4 @@
+import type { ResourceRequestOptions } from '../client.js';
 import { PDFMonkeyError } from '../error.js';
 import { APIResource } from '../resource.js';
 import type { DocumentCard } from './document-cards.js';
@@ -86,26 +87,33 @@ interface DocumentCardResponse {
  */
 export class Documents extends APIResource {
   /** Create a new document. Set `status: 'pending'` to start generation immediately. */
-  async create(params: DocumentCreateParams): Promise<Document> {
+  async create(params: DocumentCreateParams, options?: ResourceRequestOptions): Promise<Document> {
     const response = await this._client.post<DocumentResponse>('/documents', {
+      ...options,
       body: { document: serializeParams(params) },
     });
     return response.document;
   }
 
   /** Retrieve a document by ID. */
-  async get(id: string): Promise<Document> {
+  async get(id: string, options?: ResourceRequestOptions): Promise<Document> {
     const response = await this._client.get<DocumentResponse>(
       `/documents/${encodeURIComponent(id)}`,
+      options,
     );
     return response.document;
   }
 
   /** Update a document by ID. Uses PUT. */
-  async update(id: string, params: DocumentUpdateParams): Promise<Document> {
+  async update(
+    id: string,
+    params: DocumentUpdateParams,
+    options?: ResourceRequestOptions,
+  ): Promise<Document> {
     const response = await this._client.put<DocumentResponse>(
       `/documents/${encodeURIComponent(id)}`,
       {
+        ...options,
         body: { document: serializeParams(params) },
       },
     );
@@ -113,16 +121,17 @@ export class Documents extends APIResource {
   }
 
   /** Delete a document by ID. */
-  async delete(id: string): Promise<void> {
-    await this._client.delete(`/documents/${encodeURIComponent(id)}`);
+  async delete(id: string, options?: ResourceRequestOptions): Promise<void> {
+    await this._client.delete(`/documents/${encodeURIComponent(id)}`, options);
   }
 
   /** Generate a PDF synchronously. Blocks until the PDF is ready and returns a DocumentCard. */
   async generateSync(
     params: GenerateSyncParams,
-    options?: GenerateSyncOptions,
+    options?: GenerateSyncOptions & ResourceRequestOptions,
   ): Promise<DocumentCard> {
     const response = await this._client.post<DocumentCardResponse>('/documents/sync', {
+      ...options,
       body: { document: { ...serializeParams(params), status: 'pending' } },
       timeout: options?.timeout ?? 120_000,
     });
@@ -149,7 +158,7 @@ export class Documents extends APIResource {
         throw new PDFMonkeyError('waitForGeneration aborted');
       }
 
-      const doc = await this.get(id);
+      const doc = await this.get(id, signal ? { signal } : undefined);
 
       if (doc.status === 'success') {
         return doc;

@@ -1,3 +1,4 @@
+import type { ResourceRequestOptions } from '../client.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -27,8 +28,8 @@ interface PdfEnginesResponse {
  */
 export class PdfEngines extends APIResource {
   /** List active PDF engines. Returns a flat array (not paginated). */
-  async list(): Promise<readonly PdfEngine[]> {
-    const response = await this._client.get<PdfEnginesResponse>('/pdf_engines');
+  async list(options?: ResourceRequestOptions): Promise<readonly PdfEngine[]> {
+    const response = await this._client.get<PdfEnginesResponse>('/pdf_engines', options);
     return response.pdf_engines;
   }
 }

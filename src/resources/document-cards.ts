@@ -1,4 +1,4 @@
-import type { QueryValue } from '../client.js';
+import type { QueryValue, ResourceRequestOptions } from '../client.js';
 import { fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 import type { DocumentStatus } from './documents.js';
@@ -39,7 +39,10 @@ interface DocumentCardResponse {
 /** Read-only access to document cards (lightweight document summaries). */
 export class DocumentCards extends APIResource {
   /** List document cards with optional filters. Returns a paginated result. */
-  async list(params?: DocumentCardListParams): Promise<Page<DocumentCard>> {
+  async list(
+    params?: DocumentCardListParams,
+    options?: ResourceRequestOptions,
+  ): Promise<Page<DocumentCard>> {
     const query: Record<string, QueryValue> = {};
     if (params?.page !== undefined) {
       query['page[number]'] = params.page;
@@ -56,13 +59,17 @@ export class DocumentCards extends APIResource {
     if (params?.updated_since !== undefined) {
       query['q[updated_since]'] = params.updated_since;
     }
-    return fetchPage<DocumentCard>(this._client, '/document_cards', 'document_cards', { query });
+    return fetchPage<DocumentCard>(this._client, '/document_cards', 'document_cards', {
+      ...options,
+      query,
+    });
   }
 
   /** Retrieve a document card by ID. */
-  async get(id: string): Promise<DocumentCard> {
+  async get(id: string, options?: ResourceRequestOptions): Promise<DocumentCard> {
     const response = await this._client.get<DocumentCardResponse>(
       `/document_cards/${encodeURIComponent(id)}`,
+      options,
     );
     return response.document_card;
   }

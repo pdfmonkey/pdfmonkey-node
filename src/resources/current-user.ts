@@ -1,3 +1,4 @@
+import type { ResourceRequestOptions } from '../client.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -24,8 +25,11 @@ export interface CurrentUser {
 /** Read-only access to the authenticated user's profile. */
 export class CurrentUserResource extends APIResource {
   /** Retrieve the current user's profile. */
-  async get(): Promise<CurrentUser> {
-    const response = await this._client.get<{ current_user: CurrentUser }>('/current_user');
+  async get(options?: ResourceRequestOptions): Promise<CurrentUser> {
+    const response = await this._client.get<{ current_user: CurrentUser }>(
+      '/current_user',
+      options,
+    );
     return response.current_user;
   }
 }

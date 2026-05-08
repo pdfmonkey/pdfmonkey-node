@@ -46,6 +46,15 @@ export interface RequestOptions {
   idempotencyKey?: string;
 }
 
+/** Request options exposed on resource methods (no body/query). */
+export interface ResourceRequestOptions {
+  timeout?: number;
+  maxRetries?: number;
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
+  idempotencyKey?: string;
+}
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 // ── Constants ──────────────────────────────────────────────────────────────
