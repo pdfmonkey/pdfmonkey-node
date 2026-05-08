@@ -189,7 +189,15 @@ function toBuffer(bytes: Uint8Array): ArrayBuffer {
 
 /**
  * Constant-time string comparison using double HMAC.
- * Prevents timing attacks by comparing HMAC(a) === HMAC(b) instead of a === b directly.
+ *
+ * Why this and not `crypto.timingSafeEqual`: this module targets every
+ * runtime that exposes Web Crypto (Node 20+, Bun, Deno, Cloudflare
+ * Workers, Vercel Edge), so we cannot import `node:crypto`. Web Crypto
+ * has no constant-time comparison primitive, so we hash both inputs
+ * with a per-call random key and compare the HMAC outputs byte-by-byte —
+ * any timing leak is masked by the random key the attacker does not
+ * know. Keep this implementation; do not "simplify" it to a string
+ * compare or to `node:crypto` without re-evaluating edge support.
  */
 async function constantTimeEqual(a: string, b: string): Promise<boolean> {
   const randomBytes = crypto.getRandomValues(new Uint8Array(32));
