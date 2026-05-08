@@ -24,7 +24,17 @@ export interface ClientOptions {
   logger?: Logger;
   defaultHeaders?: Record<string, string>;
   hooks?: ClientHooks;
+  /**
+   * Custom retry-delay strategy. Receives the zero-based attempt number
+   * and the response headers (if a response was received) and must return
+   * the delay in milliseconds. Defaults to capped exponential backoff
+   * with full jitter, honouring the `retry-after` header.
+   */
+  retryDelay?: RetryDelayStrategy;
 }
+
+/** Computes the delay before the next retry attempt. Receives `attempt` (0-based). */
+export type RetryDelayStrategy = (attempt: number, headers?: Headers) => number;
 
 export interface RequestHookContext {
   method: HttpMethod;
@@ -110,6 +120,7 @@ export class PDFMonkey {
   readonly #logger: Logger | undefined;
   readonly #defaultHeaders: Record<string, string>;
   readonly #hooks: ClientHooks | undefined;
+  readonly #retryDelay: RetryDelayStrategy;
 
   readonly documents: Documents;
   readonly documentCards: DocumentCards;
@@ -122,8 +133,7 @@ export class PDFMonkey {
   readonly currentUser: CurrentUserResource;
 
   constructor(options?: ClientOptions | string) {
-    const opts: ClientOptions =
-      typeof options === 'string' ? { apiKey: options } : (options ?? {});
+    const opts: ClientOptions = typeof options === 'string' ? { apiKey: options } : (options ?? {});
     const apiKey = opts.apiKey ?? readApiKeyFromEnv();
 
     if (!apiKey?.trim()) {
@@ -148,6 +158,7 @@ export class PDFMonkey {
     this.#logger = opts.logger;
     this.#defaultHeaders = opts.defaultHeaders ?? {};
     this.#hooks = opts.hooks;
+    this.#retryDelay = opts.retryDelay ?? defaultRetryDelay;
 
     // Validate baseURL early to avoid confusing errors on first request
     try {
@@ -305,7 +316,7 @@ export class PDFMonkey {
 
         lastError = apiError;
 
-        const retryDelay = getRetryDelay(attempt, response.headers);
+        const retryDelay = this.#retryDelay(attempt, response.headers);
         this.#logger?.debug('Retrying', {
           attempt: attempt + 1,
           delay: retryDelay,
@@ -342,7 +353,7 @@ export class PDFMonkey {
 
         lastError = connectionError;
 
-        const retryDelay = getRetryDelay(attempt);
+        const retryDelay = this.#retryDelay(attempt);
         this.#logger?.debug('Retrying after connection error', {
           attempt: attempt + 1,
           delay: retryDelay,
@@ -374,7 +385,7 @@ function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
-function getRetryDelay(attempt: number, headers?: Headers): number {
+function defaultRetryDelay(attempt: number, headers?: Headers): number {
   if (headers) {
     const retryAfter = headers.get('retry-after');
     if (retryAfter !== null) {

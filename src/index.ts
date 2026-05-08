@@ -10,6 +10,7 @@ export type {
   RequestOptions,
   ResourceRequestOptions,
   ResponseHookContext,
+  RetryDelayStrategy,
 } from './client.js';
 export { PDFMonkey } from './client.js';
 

@@ -439,6 +439,27 @@ describe('PDFMonkey Client', () => {
       expect(signals[1]).not.toBe(signals[2]);
     });
 
+    it('uses a custom retryDelay strategy', async () => {
+      const fetch = mockFetchSequence(
+        { status: 500, body: { error: 'err' } },
+        { status: 500, body: { error: 'err' } },
+        { status: 200, body: { id: '123' } },
+      );
+      const calls: number[] = [];
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        maxRetries: 2,
+        retryDelay: (attempt) => {
+          calls.push(attempt);
+          return 0;
+        },
+      });
+
+      await client.get('/documents/123');
+      expect(calls).toEqual([0, 1]);
+    });
+
     it('respects per-request maxRetries override', async () => {
       const fetch = mockFetchSequence(
         { status: 500, body: { error: 'err' } },
