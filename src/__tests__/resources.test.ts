@@ -191,6 +191,59 @@ describe('Documents', () => {
     expect(headers['X-Trace-Id']).toBe('trace_xyz');
   });
 
+  it('downloads PDF bytes from a Document', async () => {
+    const completed: Document = {
+      ...docFixture,
+      status: 'success',
+      download_url: 'https://cdn/x.pdf',
+    };
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
+    const downloadFetch = vi.fn().mockResolvedValue(new Response(pdfBytes, { status: 200 }));
+    const { client } = createClient([]);
+
+    const bytes = await client.documents.download(completed, { fetch: downloadFetch });
+
+    expect(bytes).toEqual(pdfBytes);
+    expect(downloadFetch).toHaveBeenCalledWith('https://cdn/x.pdf', expect.any(Object));
+  });
+
+  it('downloads by ID by fetching the document first', async () => {
+    const completed = {
+      ...docFixture,
+      status: 'success' as const,
+      download_url: 'https://cdn/y.pdf',
+    };
+    const { client } = createClient([{ status: 200, body: { document: completed } }]);
+    const downloadFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+
+    const bytes = await client.documents.download('doc_1', { fetch: downloadFetch });
+    expect(bytes).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it('throws when the document has no download_url yet', async () => {
+    const { client } = createClient([]);
+    const pending = { ...docFixture, status: 'pending' as const, download_url: null };
+
+    await expect(client.documents.download(pending)).rejects.toThrow('no download_url');
+  });
+
+  it('downloadStream returns a ReadableStream', async () => {
+    const completed = {
+      ...docFixture,
+      status: 'success' as const,
+      download_url: 'https://cdn/z.pdf',
+    };
+    const downloadFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([9, 9, 9]), { status: 200 }));
+    const { client } = createClient([]);
+
+    const stream = await client.documents.downloadStream(completed, { fetch: downloadFetch });
+    expect(stream).toBeInstanceOf(ReadableStream);
+  });
+
   it('aborts documents.get when caller signal fires', async () => {
     const controller = new AbortController();
     controller.abort();

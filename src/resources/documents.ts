@@ -70,6 +70,13 @@ export interface GenerateSyncOptions {
   timeout?: number;
 }
 
+export interface DownloadOptions {
+  /** Optional caller AbortSignal. */
+  signal?: AbortSignal;
+  /** Custom fetch used for the download (defaults to global fetch). */
+  fetch?: (input: string, init?: { signal?: AbortSignal }) => Promise<Response>;
+}
+
 export interface WaitForGenerationOptions {
   /** Initial poll interval in ms. Defaults to 2000. */
   interval?: number;
@@ -150,6 +157,60 @@ export class Documents extends APIResource {
       timeout: options?.timeout ?? DEFAULT_SYNC_TIMEOUT,
     });
     return response.document_card;
+  }
+
+  /**
+   * Fetch the rendered PDF for a document and return it as a Uint8Array.
+   *
+   * The document must already have a `download_url`. For pending or draft
+   * documents, await {@link Documents.waitForGeneration} first.
+   */
+  async download(idOrDocument: string | Document, options?: DownloadOptions): Promise<Uint8Array> {
+    const response = await this.#fetchDownload(idOrDocument, options);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  /** Stream the rendered PDF for a document as a ReadableStream. */
+  async downloadStream(
+    idOrDocument: string | Document,
+    options?: DownloadOptions,
+  ): Promise<ReadableStream<Uint8Array>> {
+    const response = await this.#fetchDownload(idOrDocument, options);
+    if (!response.body) {
+      throw new PDFMonkeyError('Download response has no body stream');
+    }
+    return response.body;
+  }
+
+  async #fetchDownload(
+    idOrDocument: string | Document,
+    options?: DownloadOptions,
+  ): Promise<Response> {
+    const url = await this.#resolveDownloadUrl(idOrDocument);
+    const fetchImpl = options?.fetch ?? globalThis.fetch;
+    if (typeof fetchImpl !== 'function') {
+      throw new PDFMonkeyError(
+        'No global fetch available. Pass options.fetch to download/downloadStream.',
+      );
+    }
+    const response = await fetchImpl(url, options?.signal ? { signal: options.signal } : {});
+    if (!response.ok) {
+      throw new PDFMonkeyError(
+        `Failed to download document: ${response.status} ${response.statusText}`,
+      );
+    }
+    return response;
+  }
+
+  async #resolveDownloadUrl(idOrDocument: string | Document): Promise<string> {
+    const doc = typeof idOrDocument === 'string' ? await this.get(idOrDocument) : idOrDocument;
+    if (!doc.download_url) {
+      throw new PDFMonkeyError(
+        `Document ${doc.id} has no download_url (status: ${doc.status}). ` +
+          'Wait for generation to complete before downloading.',
+      );
+    }
+    return doc.download_url;
   }
 
   /** Poll a document until generation succeeds, fails, or times out. */
@@ -241,9 +302,9 @@ function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function serializeParams<
-  T extends { meta?: string | DocumentMeta; payload?: DocumentPayload },
->(params: T): Record<string, unknown> {
+function serializeParams<T extends { meta?: string | DocumentMeta; payload?: DocumentPayload }>(
+  params: T,
+): Record<string, unknown> {
   const { meta, payload, ...rest } = params;
   const out: Record<string, unknown> = { ...rest };
 

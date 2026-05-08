@@ -52,6 +52,7 @@ export type {
   DocumentPayload,
   DocumentStatus,
   DocumentUpdateParams,
+  DownloadOptions,
   GenerateSyncOptions,
   GenerateSyncParams,
   WaitForGenerationOptions,
