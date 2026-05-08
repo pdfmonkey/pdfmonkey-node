@@ -59,8 +59,11 @@ export interface GenerateSyncParams {
   meta?: string | DocumentMeta;
 }
 
+/** Default timeout for {@link Documents.generateSync} (2 minutes). */
+export const DEFAULT_SYNC_TIMEOUT = 120_000;
+
 export interface GenerateSyncOptions {
-  /** Request timeout in milliseconds. Defaults to 120_000 (2 minutes). */
+  /** Request timeout in milliseconds. Defaults to {@link DEFAULT_SYNC_TIMEOUT}. */
   timeout?: number;
 }
 
@@ -133,7 +136,7 @@ export class Documents extends APIResource {
     const response = await this._client.post<DocumentCardResponse>('/documents/sync', {
       ...options,
       body: { document: { ...serializeParams(params), status: 'pending' } },
-      timeout: options?.timeout ?? 120_000,
+      timeout: options?.timeout ?? DEFAULT_SYNC_TIMEOUT,
     });
     return response.document_card;
   }
