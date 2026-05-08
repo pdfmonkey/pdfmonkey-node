@@ -51,6 +51,15 @@ export class APIError extends PDFMonkeyError {
     if (status === 429) {
       return new RateLimitError(status, headers, body, message);
     }
+    if (status === 502) {
+      return new BadGatewayError(status, headers, body, message);
+    }
+    if (status === 503) {
+      return new ServiceUnavailableError(status, headers, body, message);
+    }
+    if (status === 504) {
+      return new GatewayTimeoutError(status, headers, body, message);
+    }
     if (status >= 500) {
       return new InternalServerError(status, headers, body, message);
     }
@@ -133,11 +142,35 @@ export class RateLimitError extends APIError {
   }
 }
 
-/** Thrown on 500+ — server error. */
+/** Thrown on 500+ that are not 502/503/504 — server error. */
 export class InternalServerError extends APIError {
   constructor(status: number, headers: Headers, body: unknown, message: string) {
     super(status, headers, body, message);
     this.name = 'InternalServerError';
+  }
+}
+
+/** Thrown on 502 — bad gateway, an upstream PDFMonkey service is unreachable. */
+export class BadGatewayError extends InternalServerError {
+  constructor(status: number, headers: Headers, body: unknown, message: string) {
+    super(status, headers, body, message);
+    this.name = 'BadGatewayError';
+  }
+}
+
+/** Thrown on 503 — service unavailable, typically transient. */
+export class ServiceUnavailableError extends InternalServerError {
+  constructor(status: number, headers: Headers, body: unknown, message: string) {
+    super(status, headers, body, message);
+    this.name = 'ServiceUnavailableError';
+  }
+}
+
+/** Thrown on 504 — gateway timeout from a PDFMonkey upstream. */
+export class GatewayTimeoutError extends InternalServerError {
+  constructor(status: number, headers: Headers, body: unknown, message: string) {
+    super(status, headers, body, message);
+    this.name = 'GatewayTimeoutError';
   }
 }
 

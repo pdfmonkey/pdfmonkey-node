@@ -3,12 +3,15 @@ import {
   APIConnectionError,
   APIError,
   AuthenticationError,
+  BadGatewayError,
   BadRequestError,
+  GatewayTimeoutError,
   InternalServerError,
   NotFoundError,
   PDFMonkeyError,
   PermissionDeniedError,
   RateLimitError,
+  ServiceUnavailableError,
   UnprocessableEntityError,
 } from '../error.js';
 
@@ -114,6 +117,30 @@ describe('APIError.generate status mapping', () => {
   it('returns PermissionDeniedError on 403', () => {
     const err = APIError.generate(403, headers, { error: 'Forbidden' });
     expect(err).toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it('returns BadGatewayError on 502 (and is also an InternalServerError)', () => {
+    const err = APIError.generate(502, headers, null);
+    expect(err).toBeInstanceOf(BadGatewayError);
+    expect(err).toBeInstanceOf(InternalServerError);
+  });
+
+  it('returns ServiceUnavailableError on 503', () => {
+    const err = APIError.generate(503, headers, null);
+    expect(err).toBeInstanceOf(ServiceUnavailableError);
+    expect(err).toBeInstanceOf(InternalServerError);
+  });
+
+  it('returns GatewayTimeoutError on 504', () => {
+    const err = APIError.generate(504, headers, null);
+    expect(err).toBeInstanceOf(GatewayTimeoutError);
+    expect(err).toBeInstanceOf(InternalServerError);
+  });
+
+  it('returns InternalServerError on 500', () => {
+    const err = APIError.generate(500, headers, null);
+    expect(err).toBeInstanceOf(InternalServerError);
+    expect(err).not.toBeInstanceOf(BadGatewayError);
   });
 });
 

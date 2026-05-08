@@ -13,12 +13,15 @@ export {
   APIConnectionError,
   APIError,
   AuthenticationError,
+  BadGatewayError,
   BadRequestError,
+  GatewayTimeoutError,
   InternalServerError,
   NotFoundError,
   PDFMonkeyError,
   PermissionDeniedError,
   RateLimitError,
+  ServiceUnavailableError,
   UnprocessableEntityError,
 } from './error.js';
 export type { PaginationMeta } from './pagination.js';
