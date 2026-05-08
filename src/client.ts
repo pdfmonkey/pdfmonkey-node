@@ -51,6 +51,7 @@ const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY = 500;
 const MAX_RETRY_DELAY = 5_000;
+const USER_AGENT = buildUserAgent();
 
 // ── Client ─────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export class PDFMonkey {
     const headers: Record<string, string> = {
       ...this.#defaultHeaders,
       Authorization: `Bearer ${this.#apiKey}`,
-      'User-Agent': `pdfmonkey-node/${VERSION}`,
+      'User-Agent': USER_AGENT,
       Accept: 'application/json',
     };
 
@@ -339,4 +340,14 @@ function readApiKeyFromEnv(): string | undefined {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
     ?.env;
   return env?.PDFMONKEY_API_KEY;
+}
+
+function buildUserAgent(): string {
+  const proc = (globalThis as { process?: { version?: string; platform?: string; arch?: string } })
+    .process;
+  const parts = [`pdfmonkey-node/${VERSION}`];
+  if (proc?.version) parts.push(`node/${proc.version.replace(/^v/, '')}`);
+  if (proc?.platform) parts.push(proc.platform);
+  if (proc?.arch) parts.push(proc.arch);
+  return parts.join(' ');
 }
