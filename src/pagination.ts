@@ -71,6 +71,31 @@ export class Page<T> {
     });
   }
 
+  /** Fetch a specific page number. Throws if `n` is outside [1, totalPages]. */
+  async getPage(n: number): Promise<Page<T>> {
+    if (!Number.isInteger(n) || n < 1) {
+      throw new PDFMonkeyError(`Invalid page number: ${n}`);
+    }
+    if (n > this.meta.total_pages) {
+      throw new PDFMonkeyError(
+        `Page ${n} is out of range (total pages: ${this.meta.total_pages})`,
+      );
+    }
+    return fetchPage<T>(this.#client, this.#path, this.#extractKey, {
+      query: { ...this.#query, 'page[number]': n },
+    });
+  }
+
+  /** Iterate over each {@link Page} starting from this one. */
+  async *pages(): AsyncIterableIterator<Page<T>> {
+    let page: Page<T> = this;
+    while (true) {
+      yield page;
+      if (!page.hasNextPage()) break;
+      page = await page.getNextPage();
+    }
+  }
+
   /** Iterate over items in this page. */
   [Symbol.iterator](): IterableIterator<T> {
     return this.data[Symbol.iterator]();
