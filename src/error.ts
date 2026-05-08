@@ -1,3 +1,5 @@
+const NODE_INSPECT = Symbol.for('nodejs.util.inspect.custom');
+
 /** Base error class for all PDFMonkey SDK errors. */
 export class PDFMonkeyError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -5,6 +7,12 @@ export class PDFMonkeyError extends Error {
     this.name = 'PDFMonkeyError';
   }
 }
+
+Object.defineProperty(PDFMonkeyError.prototype, NODE_INSPECT, {
+  value: function inspect(this: PDFMonkeyError): string {
+    return `${this.name}: ${this.message}`;
+  },
+});
 
 /** Error returned by the PDFMonkey API with HTTP status, headers, and body. */
 export class APIError extends PDFMonkeyError {
@@ -59,6 +67,13 @@ export class APIError extends PDFMonkeyError {
     };
   }
 }
+
+Object.defineProperty(APIError.prototype, NODE_INSPECT, {
+  value: function inspect(this: APIError): string {
+    const reqId = this.requestId ? ` requestId=${this.requestId}` : '';
+    return `${this.name} [${this.status}]${reqId}: ${this.message}`;
+  },
+});
 
 /** Thrown on 400 — bad request / validation error. */
 export class BadRequestError extends APIError {

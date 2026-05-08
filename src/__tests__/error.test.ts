@@ -159,6 +159,32 @@ describe('APIError.toJSON', () => {
   });
 });
 
+describe('inspect symbol', () => {
+  const inspect = Symbol.for('nodejs.util.inspect.custom');
+
+  it('PDFMonkeyError formats as "Name: message"', () => {
+    const err = new PDFMonkeyError('boom') as PDFMonkeyError & {
+      [k: symbol]: () => string;
+    };
+    expect(err[inspect]()).toBe('PDFMonkeyError: boom');
+  });
+
+  it('APIError includes status and request id when present', () => {
+    const headers = new Headers({ 'x-request-id': 'req_42' });
+    const err = new APIError(404, headers, null, 'gone') as APIError & {
+      [k: symbol]: () => string;
+    };
+    expect(err[inspect]()).toBe('APIError [404] requestId=req_42: gone');
+  });
+
+  it('APIError omits request id when missing', () => {
+    const err = new APIError(500, new Headers(), null, 'oops') as APIError & {
+      [k: symbol]: () => string;
+    };
+    expect(err[inspect]()).toBe('APIError [500]: oops');
+  });
+});
+
 describe('APIConnectionError.toJSON', () => {
   it('returns a serializable object', () => {
     const err = new APIConnectionError('Connection failed');
