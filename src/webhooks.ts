@@ -10,11 +10,51 @@ export interface WebhookHeaders {
 
 export type WebhookEventType = 'document.done' | 'document.error' | (string & {});
 
-export interface WebhookEvent {
-  readonly type: WebhookEventType;
+/** Payload shape for a `document.done` webhook event. */
+export interface DocumentDoneEventData {
+  readonly id: string;
+  readonly status: 'success';
+  readonly download_url: string;
+  readonly filename: string | null;
+  readonly preview_url?: string;
+  readonly checksum?: string;
+  readonly app_id?: string;
+  readonly document_template_id?: string;
+  readonly meta?: string | null;
+  readonly [key: string]: unknown;
+}
+
+/** Payload shape for a `document.error` webhook event. */
+export interface DocumentErrorEventData {
+  readonly id: string;
+  readonly status: 'failure' | 'error';
+  readonly failure_cause: string | null;
+  readonly app_id?: string;
+  readonly document_template_id?: string;
+  readonly meta?: string | null;
+  readonly [key: string]: unknown;
+}
+
+export interface DocumentDoneEvent {
+  readonly type: 'document.done';
+  readonly data: DocumentDoneEventData;
+  readonly timestamp: string;
+}
+
+export interface DocumentErrorEvent {
+  readonly type: 'document.error';
+  readonly data: DocumentErrorEventData;
+  readonly timestamp: string;
+}
+
+/** Catch-all for forward-compatible event types. */
+export interface UnknownWebhookEvent {
+  readonly type: string & {};
   readonly data: Readonly<Record<string, unknown>>;
   readonly timestamp: string;
 }
+
+export type WebhookEvent = DocumentDoneEvent | DocumentErrorEvent | UnknownWebhookEvent;
 
 export interface VerifyWebhookOptions {
   /** Tolerance in seconds for timestamp validation. Default: 300 (5 minutes). */

@@ -72,6 +72,11 @@ export type { Workspace, WorkspaceListParams } from './resources/workspaces.js';
 export { Workspaces } from './resources/workspaces.js';
 export { VERSION } from './version.js';
 export type {
+  DocumentDoneEvent,
+  DocumentDoneEventData,
+  DocumentErrorEvent,
+  DocumentErrorEventData,
+  UnknownWebhookEvent,
   VerifyWebhookOptions,
   WebhookEvent,
   WebhookEventType,
