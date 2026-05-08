@@ -24,6 +24,15 @@
     }
   },
   "files": {
-    "includes": ["**", "!!**/dist", "!!**/node_modules", "!!**/.changeset"]
+    "includes": [
+      "**",
+      "!!**/dist",
+      "!!**/node_modules",
+      "!!**/.changeset",
+      "!!**/.wolf",
+      "!!**/.omc",
+      "!!**/coverage",
+      "!!**/examples"
+    ]
   }
 }
