@@ -76,6 +76,44 @@ describe('PDFMonkey Client', () => {
       expect(() => new PDFMonkey({ apiKey: '\t\n' })).toThrow(PDFMonkeyError);
     });
 
+    it('falls back to PDFMONKEY_API_KEY env var', () => {
+      const original = process.env.PDFMONKEY_API_KEY;
+      process.env.PDFMONKEY_API_KEY = 'sk_env_123';
+      try {
+        const client = new PDFMonkey();
+        expect(client).toBeInstanceOf(PDFMonkey);
+
+        const explicit = new PDFMonkey({ timeout: 5_000 });
+        expect(explicit.timeout).toBe(5_000);
+      } finally {
+        if (original === undefined) delete process.env.PDFMONKEY_API_KEY;
+        else process.env.PDFMONKEY_API_KEY = original;
+      }
+    });
+
+    it('explicit apiKey wins over env var', () => {
+      const original = process.env.PDFMONKEY_API_KEY;
+      process.env.PDFMONKEY_API_KEY = 'sk_env_lose';
+      try {
+        const client = new PDFMonkey({ apiKey: 'sk_explicit_win' });
+        expect(client).toBeInstanceOf(PDFMonkey);
+      } finally {
+        if (original === undefined) delete process.env.PDFMONKEY_API_KEY;
+        else process.env.PDFMONKEY_API_KEY = original;
+      }
+    });
+
+    it('throws when no key is provided and env is unset', () => {
+      const original = process.env.PDFMONKEY_API_KEY;
+      delete process.env.PDFMONKEY_API_KEY;
+      try {
+        expect(() => new PDFMonkey()).toThrow(PDFMonkeyError);
+        expect(() => new PDFMonkey()).toThrow('API key must be provided');
+      } finally {
+        if (original !== undefined) process.env.PDFMONKEY_API_KEY = original;
+      }
+    });
+
     it('throws PDFMonkeyError if timeout <= 0', () => {
       expect(() => new PDFMonkey({ apiKey: 'sk_test', timeout: 0 })).toThrow(PDFMonkeyError);
       expect(() => new PDFMonkey({ apiKey: 'sk_test', timeout: 0 })).toThrow(

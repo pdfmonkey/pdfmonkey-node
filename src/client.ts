@@ -15,7 +15,8 @@ import { VERSION } from './version.js';
 export type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface ClientOptions {
-  apiKey: string;
+  /** Defaults to `process.env.PDFMONKEY_API_KEY` when omitted. */
+  apiKey?: string;
   baseURL?: string;
   timeout?: number;
   maxRetries?: number;
@@ -73,16 +74,19 @@ export class PDFMonkey {
   readonly snippets: Snippets;
   readonly currentUser: CurrentUserResource;
 
-  constructor(options: ClientOptions | string) {
-    const opts: ClientOptions = typeof options === 'string' ? { apiKey: options } : options;
+  constructor(options?: ClientOptions | string) {
+    const opts: ClientOptions =
+      typeof options === 'string' ? { apiKey: options } : (options ?? {});
+    const apiKey = opts.apiKey ?? readApiKeyFromEnv();
 
-    if (!opts.apiKey?.trim()) {
+    if (!apiKey?.trim()) {
       throw new PDFMonkeyError(
-        'The PDFMonkey API key must be provided. Pass it as a string or as { apiKey: "..." }.',
+        'The PDFMonkey API key must be provided. Pass it as a string, ' +
+          'as { apiKey: "..." }, or set PDFMONKEY_API_KEY in the environment.',
       );
     }
 
-    this.#apiKey = opts.apiKey;
+    this.#apiKey = apiKey;
     this.baseURL = (opts.baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
     this.maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
@@ -329,4 +333,10 @@ function getFetch(): Fetch {
     );
   }
   return globalThis.fetch.bind(globalThis) as Fetch;
+}
+
+function readApiKeyFromEnv(): string | undefined {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
+    ?.env;
+  return env?.PDFMONKEY_API_KEY;
 }
