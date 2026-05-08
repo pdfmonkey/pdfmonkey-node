@@ -1,0 +1,62 @@
+# Changesets-driven release pipeline. Runs on every push to main and switches
+# between two modes based on the state of the .changeset/ directory:
+#
+#   1. Unreleased changesets present -> opens or refreshes a "chore: release"
+#      PR that consumes the .changeset/*.md files, bumps package.json, and
+#      regenerates CHANGELOG.md. Nothing is published.
+#   2. Release PR merged (no changeset files left) -> runs
+#      `pnpm changeset publish`, which publishes the package to npm and
+#      pushes the matching git tag.
+#
+# Contributor flow: PR + `pnpm changeset` -> merge PR (workflow refreshes the
+# release PR) -> merge release PR (workflow publishes to npm).
+#
+# id-token: write + NPM_CONFIG_PROVENANCE=true make npm record build
+# provenance against the GitHub Actions run for supply-chain attestation.
+# The repository guard stops forks from accidentally publishing.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    if: github.repository == 'pdfmonkey/pdfmonkey-node'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Create release pull request or publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm changeset publish
+          version: pnpm changeset version
+          commit: "chore: release"
+          title: "chore: release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
