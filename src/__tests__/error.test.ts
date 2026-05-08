@@ -212,6 +212,19 @@ describe('inspect symbol', () => {
   });
 });
 
+describe('APIError.toJSONRedacted', () => {
+  it('omits the body field', () => {
+    const headers = new Headers({ 'x-request-id': 'req_42' });
+    const err = new APIError(400, headers, { secret: 'pii' }, 'Bad');
+    const json = err.toJSONRedacted();
+
+    expect(json.body).toBeUndefined();
+    expect(json.name).toBe('APIError');
+    expect(json.status).toBe(400);
+    expect(json.requestId).toBe('req_42');
+  });
+});
+
 describe('APIConnectionError.toJSON', () => {
   it('returns a serializable object', () => {
     const err = new APIConnectionError('Connection failed');

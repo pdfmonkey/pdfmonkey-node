@@ -75,6 +75,20 @@ export class APIError extends PDFMonkeyError {
       body: this.body,
     };
   }
+
+  /**
+   * Same shape as toJSON() but with the body removed. Use when forwarding
+   * errors to logs/observability where the body may contain user input
+   * or PII you do not want to persist.
+   */
+  toJSONRedacted(): Record<string, unknown> {
+    return {
+      name: this.name,
+      message: this.message,
+      status: this.status,
+      requestId: this.requestId,
+    };
+  }
 }
 
 Object.defineProperty(APIError.prototype, NODE_INSPECT, {
