@@ -42,6 +42,7 @@ export type {
   Document,
   DocumentCreateParams,
   DocumentMeta,
+  DocumentPayload,
   DocumentStatus,
   DocumentUpdateParams,
   GenerateSyncOptions,

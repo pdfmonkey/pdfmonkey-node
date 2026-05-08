@@ -63,6 +63,34 @@ describe('Documents', () => {
     expect(init.method).toBe('PUT');
   });
 
+  it('serializes payload object to JSON string', async () => {
+    const { client, fetch } = createClient([{ status: 201, body: { document: docFixture } }]);
+
+    await client.documents.create({
+      document_template_id: 'tpl_1',
+      payload: { name: 'Bob', amount: 99 },
+    });
+
+    const [, init] = fetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(typeof body.document.payload).toBe('string');
+    expect(JSON.parse(body.document.payload)).toEqual({ name: 'Bob', amount: 99 });
+  });
+
+  it('passes payload string through unchanged', async () => {
+    const { client, fetch } = createClient([{ status: 201, body: { document: docFixture } }]);
+    const raw = '{"name":"already-a-string"}';
+
+    await client.documents.create({
+      document_template_id: 'tpl_1',
+      payload: raw,
+    });
+
+    const [, init] = fetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.document.payload).toBe(raw);
+  });
+
   it('serializes meta object with _password and _filename', async () => {
     const { client, fetch } = createClient([{ status: 201, body: { document: docFixture } }]);
 

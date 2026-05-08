@@ -39,23 +39,26 @@ export interface DocumentMeta {
   [key: string]: unknown;
 }
 
+/** Payload accepted by document mutation endpoints — string or any JSON value. */
+export type DocumentPayload = string | Record<string, unknown> | unknown[];
+
 export interface DocumentCreateParams {
   document_template_id: string;
-  payload?: string;
+  payload?: DocumentPayload;
   meta?: string | DocumentMeta;
   status?: 'draft' | 'pending';
 }
 
 export interface DocumentUpdateParams {
   document_template_id?: string;
-  payload?: string;
+  payload?: DocumentPayload;
   meta?: string | DocumentMeta;
   status?: 'draft' | 'pending';
 }
 
 export interface GenerateSyncParams {
   document_template_id: string;
-  payload?: string;
+  payload?: DocumentPayload;
   meta?: string | DocumentMeta;
 }
 
@@ -220,12 +223,18 @@ function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function serializeParams<T extends { meta?: string | DocumentMeta }>(
-  params: T,
-): Record<string, unknown> {
-  const { meta, ...rest } = params;
-  if (meta === undefined || typeof meta === 'string') {
-    return meta === undefined ? { ...rest } : { ...rest, meta };
+function serializeParams<
+  T extends { meta?: string | DocumentMeta; payload?: DocumentPayload },
+>(params: T): Record<string, unknown> {
+  const { meta, payload, ...rest } = params;
+  const out: Record<string, unknown> = { ...rest };
+
+  if (payload !== undefined) {
+    out.payload = typeof payload === 'string' ? payload : JSON.stringify(payload);
   }
-  return { ...rest, meta: JSON.stringify(meta) };
+  if (meta !== undefined) {
+    out.meta = typeof meta === 'string' ? meta : JSON.stringify(meta);
+  }
+
+  return out;
 }
