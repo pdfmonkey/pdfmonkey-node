@@ -205,6 +205,24 @@ export class Documents extends APIResource {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Parse a Document or DocumentCard `meta` field into a {@link DocumentMeta}
+ * object. Returns `null` if `meta` is null or not valid JSON. Returns
+ * `undefined` only when given `undefined` (preserves call-site narrowing).
+ */
+export function parseMeta(meta: string | null): DocumentMeta | null {
+  if (meta === null) return null;
+  try {
+    const parsed = JSON.parse(meta);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as DocumentMeta;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {

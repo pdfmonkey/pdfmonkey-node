@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PDFMonkeyError } from '../error.js';
 import type { DocumentCard } from '../resources/document-cards.js';
 import type { Document } from '../resources/documents.js';
+import { parseMeta } from '../resources/documents.js';
 import { createClient } from './helpers.js';
 
 const docFixture: Document = {
@@ -171,5 +172,26 @@ describe('waitForGeneration', () => {
       maxInterval: 1,
     });
     expect(doc.status).toBe('success');
+  });
+});
+
+describe('parseMeta', () => {
+  it('parses a JSON object string', () => {
+    expect(parseMeta('{"_filename":"a.pdf","x":1}')).toEqual({ _filename: 'a.pdf', x: 1 });
+  });
+
+  it('returns null for null input', () => {
+    expect(parseMeta(null)).toBeNull();
+  });
+
+  it('returns null for invalid JSON', () => {
+    expect(parseMeta('not-json')).toBeNull();
+  });
+
+  it('returns null when JSON is not an object', () => {
+    expect(parseMeta('"a string"')).toBeNull();
+    expect(parseMeta('42')).toBeNull();
+    expect(parseMeta('[1,2]')).toBeNull();
+    expect(parseMeta('null')).toBeNull();
   });
 });
