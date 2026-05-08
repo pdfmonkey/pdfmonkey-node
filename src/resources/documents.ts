@@ -107,7 +107,18 @@ interface DocumentCardResponse {
  * lightweight document summaries with pagination support.
  */
 export class Documents extends APIResource {
-  /** Create a new document. Set `status: 'pending'` to start generation immediately. */
+  /**
+   * Create a new document. Set `status: 'pending'` to start generation immediately.
+   *
+   * @example
+   * ```ts
+   * const doc = await client.documents.create({
+   *   document_template_id: 'tpl_xxx',
+   *   payload: { name: 'Alice', amount: 42 },
+   *   status: 'pending',
+   * });
+   * ```
+   */
   async create(params: DocumentCreateParams, options?: ResourceRequestOptions): Promise<Document> {
     const response = await this._client.post<DocumentResponse>('/documents', {
       ...options,
@@ -146,7 +157,18 @@ export class Documents extends APIResource {
     await this._client.delete(`/documents/${encodeURIComponent(id)}`, options);
   }
 
-  /** Generate a PDF synchronously. Blocks until the PDF is ready and returns a DocumentCard. */
+  /**
+   * Generate a PDF synchronously. Blocks until the PDF is ready and returns a DocumentCard.
+   *
+   * @example
+   * ```ts
+   * const card = await client.documents.generateSync({
+   *   document_template_id: 'tpl_xxx',
+   *   payload: { invoice_number: 1234 },
+   * });
+   * console.log(card.download_url);
+   * ```
+   */
   async generateSync(
     params: GenerateSyncParams,
     options?: GenerateSyncOptions & ResourceRequestOptions,
@@ -213,7 +235,18 @@ export class Documents extends APIResource {
     return doc.download_url;
   }
 
-  /** Poll a document until generation succeeds, fails, or times out. */
+  /**
+   * Poll a document until generation succeeds, fails, or times out.
+   *
+   * @example
+   * ```ts
+   * const completed = await client.documents.waitForGeneration(doc.id, {
+   *   interval: 2000,
+   *   timeout: 120_000,
+   *   signal: AbortSignal.timeout(30_000),
+   * });
+   * ```
+   */
   async waitForGeneration(id: string, options?: WaitForGenerationOptions): Promise<Document> {
     const interval = options?.interval ?? 2000;
     const timeout = options?.timeout ?? 120_000;

@@ -110,7 +110,27 @@ const USER_AGENT = buildUserAgent();
 
 // ── Client ─────────────────────────────────────────────────────────────────
 
-/** PDFMonkey API client. Instantiate with an API key or options object. */
+/**
+ * PDFMonkey API client. Instantiate with an API key or options object.
+ *
+ * @example
+ * ```ts
+ * import { PDFMonkey } from 'pdfmonkey';
+ *
+ * // String form
+ * const client = new PDFMonkey('your-api-key');
+ *
+ * // Options form
+ * const client2 = new PDFMonkey({
+ *   apiKey: 'your-api-key',
+ *   timeout: 10_000,
+ *   maxRetries: 3,
+ * });
+ *
+ * // Picks up PDFMONKEY_API_KEY from process.env when omitted
+ * const client3 = new PDFMonkey();
+ * ```
+ */
 export class PDFMonkey {
   readonly #apiKey: string;
   readonly baseURL: string;

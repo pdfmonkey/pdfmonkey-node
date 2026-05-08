@@ -8,7 +8,23 @@ export interface PaginationMeta {
   readonly prev_page: number | null;
 }
 
-/** A page of results from a paginated list endpoint. */
+/**
+ * A page of results from a paginated list endpoint.
+ *
+ * @example
+ * ```ts
+ * const page = await client.documentCards.list({ status: 'success' });
+ *
+ * // Walk one page at a time
+ * for (const card of page) console.log(card.id);
+ *
+ * // Walk every item across every page
+ * for await (const card of page) console.log(card.id);
+ *
+ * // Jump to a specific page
+ * const last = await page.getPage(page.totalPages);
+ * ```
+ */
 export class Page<T> {
   readonly data: readonly T[];
   readonly meta: PaginationMeta;
