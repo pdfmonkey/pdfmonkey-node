@@ -1,5 +1,5 @@
-import type { QueryValue, ResourceRequestOptions } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -106,19 +106,13 @@ export class DocumentTemplates extends APIResource {
     params?: DocumentTemplateListParams,
     options?: ResourceRequestOptions,
   ): Promise<Page<DocumentTemplateCard>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
-    if (params?.workspace_id !== undefined) {
-      query['q[workspace_id]'] = params.workspace_id;
-    }
-    if (params?.folders !== undefined) {
-      query['q[folders]'] = params.folders;
-    }
-    if (params?.sort !== undefined) {
-      query.sort = params.sort;
-    }
+    const query = buildListQuery(
+      {
+        workspace_id: params?.workspace_id,
+        folders: params?.folders,
+      },
+      { page: params?.page, sort: params?.sort },
+    );
     return fetchPage<DocumentTemplateCard>(
       this._client,
       '/document_template_cards',

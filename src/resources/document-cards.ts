@@ -1,5 +1,5 @@
-import type { QueryValue, ResourceRequestOptions } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 import type { DocumentStatus } from './documents.js';
 
@@ -43,22 +43,15 @@ export class DocumentCards extends APIResource {
     params?: DocumentCardListParams,
     options?: ResourceRequestOptions,
   ): Promise<Page<DocumentCard>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
-    if (params?.document_template_id !== undefined) {
-      query['q[document_template_id]'] = params.document_template_id;
-    }
-    if (params?.status !== undefined) {
-      query['q[status]'] = params.status;
-    }
-    if (params?.workspace_id !== undefined) {
-      query['q[workspace_id]'] = params.workspace_id;
-    }
-    if (params?.updated_since !== undefined) {
-      query['q[updated_since]'] = params.updated_since;
-    }
+    const query = buildListQuery(
+      {
+        document_template_id: params?.document_template_id,
+        status: params?.status,
+        workspace_id: params?.workspace_id,
+        updated_since: params?.updated_since,
+      },
+      { page: params?.page },
+    );
     return fetchPage<DocumentCard>(this._client, '/document_cards', 'document_cards', {
       ...options,
       query,

@@ -1,5 +1,5 @@
-import type { QueryValue, ResourceRequestOptions } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -40,10 +40,7 @@ interface SnippetResponse {
 export class Snippets extends APIResource {
   /** List snippets. Returns a paginated result. */
   async list(params?: SnippetListParams, options?: ResourceRequestOptions): Promise<Page<Snippet>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
+    const query = buildListQuery({}, { page: params?.page });
     return fetchPage<Snippet>(this._client, '/snippets', 'snippets', { ...options, query });
   }
 

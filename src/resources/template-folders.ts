@@ -1,5 +1,5 @@
-import type { QueryValue, ResourceRequestOptions } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -37,10 +37,7 @@ export class TemplateFolders extends APIResource {
     params?: TemplateFolderListParams,
     options?: ResourceRequestOptions,
   ): Promise<Page<TemplateFolder>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
+    const query = buildListQuery({}, { page: params?.page });
     return fetchPage<TemplateFolder>(this._client, '/template_folders', 'template_folders', {
       ...options,
       query,

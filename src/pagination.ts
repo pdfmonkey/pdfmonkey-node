@@ -77,9 +77,7 @@ export class Page<T> {
       throw new PDFMonkeyError(`Invalid page number: ${n}`);
     }
     if (n > this.meta.total_pages) {
-      throw new PDFMonkeyError(
-        `Page ${n} is out of range (total pages: ${this.meta.total_pages})`,
-      );
+      throw new PDFMonkeyError(`Page ${n} is out of range (total pages: ${this.meta.total_pages})`);
     }
     return fetchPage<T>(this.#client, this.#path, this.#extractKey, {
       query: { ...this.#query, 'page[number]': n },
@@ -112,6 +110,30 @@ export class Page<T> {
       page = await page.getNextPage();
     }
   }
+}
+
+/**
+ * Build a Record<string, QueryValue> from an `q[...]` filter map plus an
+ * optional `page[number]`. Skips entries whose value is undefined so
+ * callers do not have to test each one.
+ */
+export function buildListQuery(
+  filters: Record<string, QueryValue | undefined> = {},
+  options: { page?: number | undefined; sort?: string | undefined } = {},
+): Record<string, QueryValue> {
+  const query: Record<string, QueryValue> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined) {
+      query[`q[${key}]`] = value;
+    }
+  }
+  if (options.page !== undefined) {
+    query['page[number]'] = options.page;
+  }
+  if (options.sort !== undefined) {
+    query.sort = options.sort;
+  }
+  return query;
 }
 
 type PaginatedResponse = Record<string, unknown> & {
