@@ -23,6 +23,38 @@ export interface ClientOptions {
   fetch?: Fetch;
   logger?: Logger;
   defaultHeaders?: Record<string, string>;
+  hooks?: ClientHooks;
+}
+
+export interface RequestHookContext {
+  method: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body: string | null;
+  attempt: number;
+}
+
+export interface ResponseHookContext extends RequestHookContext {
+  response: Response;
+  durationMs: number;
+}
+
+export interface ErrorHookContext extends RequestHookContext {
+  error: unknown;
+  durationMs: number;
+}
+
+export interface ClientHooks {
+  /**
+   * Called after the request is built but before fetch is invoked. Mutating
+   * the headers map is allowed and is the supported way to inject signing
+   * headers, tracing, etc. Async hooks are awaited.
+   */
+  onRequest?: (ctx: RequestHookContext) => void | Promise<void>;
+  /** Called once a Response is received, regardless of status. */
+  onResponse?: (ctx: ResponseHookContext) => void | Promise<void>;
+  /** Called on transport-level errors (no Response). */
+  onError?: (ctx: ErrorHookContext) => void | Promise<void>;
 }
 
 export interface Logger {
@@ -77,6 +109,7 @@ export class PDFMonkey {
   readonly #fetch: Fetch;
   readonly #logger: Logger | undefined;
   readonly #defaultHeaders: Record<string, string>;
+  readonly #hooks: ClientHooks | undefined;
 
   readonly documents: Documents;
   readonly documentCards: DocumentCards;
@@ -114,6 +147,7 @@ export class PDFMonkey {
     this.#fetch = opts.fetch ?? getFetch();
     this.#logger = opts.logger;
     this.#defaultHeaders = opts.defaultHeaders ?? {};
+    this.#hooks = opts.hooks;
 
     // Validate baseURL early to avoid confusing errors on first request
     try {
@@ -209,6 +243,12 @@ export class PDFMonkey {
         attempt,
       });
 
+      const startedAt = Date.now();
+
+      if (this.#hooks?.onRequest) {
+        await this.#hooks.onRequest({ method, url, headers, body, attempt });
+      }
+
       try {
         const response = await this.#fetch(url, {
           method,
@@ -216,6 +256,18 @@ export class PDFMonkey {
           body,
           signal: controller.signal,
         });
+
+        if (this.#hooks?.onResponse) {
+          await this.#hooks.onResponse({
+            method,
+            url,
+            headers,
+            body,
+            attempt,
+            response: response.clone(),
+            durationMs: Date.now() - startedAt,
+          });
+        }
 
         this.#logger?.debug('Response', {
           method,
@@ -262,6 +314,18 @@ export class PDFMonkey {
       } catch (error) {
         clearTimeout(timeoutId);
         if (onAbort) callerSignal?.removeEventListener('abort', onAbort);
+
+        if (this.#hooks?.onError && !(error instanceof APIError)) {
+          await this.#hooks.onError({
+            method,
+            url,
+            headers,
+            body,
+            attempt,
+            error,
+            durationMs: Date.now() - startedAt,
+          });
+        }
 
         if (error instanceof APIError || error instanceof PDFMonkeyError) {
           throw error;

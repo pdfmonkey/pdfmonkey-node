@@ -1,11 +1,15 @@
 export type {
+  ClientHooks,
   ClientOptions,
+  ErrorHookContext,
   Fetch,
   HttpMethod,
   Logger,
   QueryValue,
+  RequestHookContext,
   RequestOptions,
   ResourceRequestOptions,
+  ResponseHookContext,
 } from './client.js';
 export { PDFMonkey } from './client.js';
 

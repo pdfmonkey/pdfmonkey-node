@@ -670,6 +670,67 @@ describe('PDFMonkey Client', () => {
     });
   });
 
+  describe('hooks', () => {
+    it('calls onRequest before fetch and lets it mutate headers', async () => {
+      const fetch = mockFetch(200, { id: '123' });
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        hooks: {
+          onRequest: (ctx) => {
+            ctx.headers['X-Hook-Header'] = 'set-by-hook';
+            expect(ctx.method).toBe('GET');
+            expect(ctx.attempt).toBe(0);
+          },
+        },
+      });
+
+      await client.get('/documents/123');
+
+      const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>)['X-Hook-Header']).toBe('set-by-hook');
+    });
+
+    it('calls onResponse with the response and a duration', async () => {
+      const fetch = mockFetch(200, { id: '123' });
+      const seen: Array<{ status: number; durationMs: number }> = [];
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        hooks: {
+          onResponse: (ctx) => {
+            seen.push({ status: ctx.response.status, durationMs: ctx.durationMs });
+          },
+        },
+      });
+
+      await client.get('/documents/123');
+
+      expect(seen).toHaveLength(1);
+      expect(seen[0]?.status).toBe(200);
+      expect(seen[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('calls onError on transport failure', async () => {
+      const fetch = mockFetchError(new TypeError('fetch failed'));
+      const errors: unknown[] = [];
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        maxRetries: 0,
+        hooks: {
+          onError: (ctx) => {
+            errors.push(ctx.error);
+          },
+        },
+      });
+
+      await expect(client.get('/documents')).rejects.toThrow(APIConnectionError);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toBeInstanceOf(TypeError);
+    });
+  });
+
   describe('logger', () => {
     it('logs request and response at debug level', async () => {
       const logger = {
