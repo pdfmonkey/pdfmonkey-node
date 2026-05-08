@@ -68,9 +68,17 @@ export interface GenerateSyncOptions {
 }
 
 export interface WaitForGenerationOptions {
+  /** Initial poll interval in ms. Defaults to 2000. */
   interval?: number;
+  /** Total budget before giving up, in ms. Defaults to 120_000. */
   timeout?: number;
+  /** Optional caller AbortSignal. */
   signal?: AbortSignal;
+  /**
+   * Cap for the per-poll delay when using exponential backoff. Set equal to
+   * `interval` to disable backoff. Defaults to 10_000 (10 seconds).
+   */
+  maxInterval?: number;
 }
 
 interface DocumentResponse {
@@ -145,6 +153,7 @@ export class Documents extends APIResource {
   async waitForGeneration(id: string, options?: WaitForGenerationOptions): Promise<Document> {
     const interval = options?.interval ?? 2000;
     const timeout = options?.timeout ?? 120_000;
+    const maxInterval = options?.maxInterval ?? 10_000;
     const signal = options?.signal;
 
     if (interval <= 0) {
@@ -153,8 +162,14 @@ export class Documents extends APIResource {
     if (timeout <= 0) {
       throw new PDFMonkeyError('waitForGeneration timeout must be a positive number');
     }
+    if (maxInterval < interval) {
+      throw new PDFMonkeyError(
+        'waitForGeneration maxInterval must be >= interval (set them equal to disable backoff)',
+      );
+    }
 
     const start = Date.now();
+    let currentInterval = interval;
 
     while (true) {
       if (signal?.aborted) {
@@ -173,13 +188,14 @@ export class Documents extends APIResource {
         );
       }
 
-      if (Date.now() - start + interval > timeout) {
+      if (Date.now() - start + currentInterval > timeout) {
         throw new PDFMonkeyError(
           `Document generation timed out after ${timeout}ms (status: ${doc.status})`,
         );
       }
 
-      await abortableSleep(interval, signal);
+      await abortableSleep(currentInterval, signal);
+      currentInterval = Math.min(currentInterval * 2, maxInterval);
     }
   }
 }

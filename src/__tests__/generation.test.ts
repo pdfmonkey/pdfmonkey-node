@@ -148,4 +148,28 @@ describe('waitForGeneration', () => {
       client.documents.waitForGeneration('doc_1', { interval: 100, timeout: 10 }),
     ).rejects.toThrow(/timed out/);
   });
+
+  it('rejects maxInterval < interval', async () => {
+    const { client } = createClient([]);
+
+    await expect(
+      client.documents.waitForGeneration('doc_1', { interval: 1000, maxInterval: 500 }),
+    ).rejects.toThrow('maxInterval must be >= interval');
+  });
+
+  it('treats maxInterval === interval as disabling backoff', async () => {
+    // Two pending polls then success — succeeds without timing out, which
+    // confirms backoff respects the cap.
+    const { client } = createClient([
+      { status: 200, body: { document: { ...docFixture, status: 'generating' } } },
+      { status: 200, body: { document: { ...docFixture, status: 'generating' } } },
+      { status: 200, body: { document: docFixture } },
+    ]);
+
+    const doc = await client.documents.waitForGeneration('doc_1', {
+      interval: 1,
+      maxInterval: 1,
+    });
+    expect(doc.status).toBe('success');
+  });
 });
