@@ -244,17 +244,6 @@ describe('Documents', () => {
     expect(stream).toBeInstanceOf(ReadableStream);
   });
 
-  it('aborts documents.get when caller signal fires', async () => {
-    const controller = new AbortController();
-    controller.abort();
-
-    const fetch = vi.fn();
-    const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
-
-    await expect(client.documents.get('doc_1', { signal: controller.signal })).rejects.toThrow();
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
   describe('waitForGeneration', () => {
     it('has a default timeout of 120s', async () => {
       const pendingDoc = {

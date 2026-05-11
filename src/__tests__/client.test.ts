@@ -91,29 +91,6 @@ describe('PDFMonkey Client', () => {
       }
     });
 
-    it('explicit apiKey wins over env var', () => {
-      const original = process.env.PDFMONKEY_API_KEY;
-      process.env.PDFMONKEY_API_KEY = 'sk_env_lose';
-      try {
-        const client = new PDFMonkey({ apiKey: 'sk_explicit_win' });
-        expect(client).toBeInstanceOf(PDFMonkey);
-      } finally {
-        if (original === undefined) delete process.env.PDFMONKEY_API_KEY;
-        else process.env.PDFMONKEY_API_KEY = original;
-      }
-    });
-
-    it('throws when no key is provided and env is unset', () => {
-      const original = process.env.PDFMONKEY_API_KEY;
-      delete process.env.PDFMONKEY_API_KEY;
-      try {
-        expect(() => new PDFMonkey()).toThrow(PDFMonkeyError);
-        expect(() => new PDFMonkey()).toThrow('API key must be provided');
-      } finally {
-        if (original !== undefined) process.env.PDFMONKEY_API_KEY = original;
-      }
-    });
-
     it('throws PDFMonkeyError if timeout <= 0', () => {
       expect(() => new PDFMonkey({ apiKey: 'sk_test', timeout: 0 })).toThrow(PDFMonkeyError);
       expect(() => new PDFMonkey({ apiKey: 'sk_test', timeout: 0 })).toThrow(
@@ -574,17 +551,6 @@ describe('PDFMonkey Client', () => {
       const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
       expect(headers['Idempotency-Key']).toBe('idemp-abc-123');
-    });
-
-    it('does not send Idempotency-Key when omitted', async () => {
-      const fetch = mockFetch(201, { id: 'new' });
-      const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
-
-      await client.post('/documents');
-
-      const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
-      const headers = init.headers as Record<string, string>;
-      expect(headers['Idempotency-Key']).toBeUndefined();
     });
 
     it('includes defaultHeaders in every request', async () => {

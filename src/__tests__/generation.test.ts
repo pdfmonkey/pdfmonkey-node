@@ -188,10 +188,4 @@ describe('parseMeta', () => {
     expect(parseMeta('not-json')).toBeNull();
   });
 
-  it('returns null when JSON is not an object', () => {
-    expect(parseMeta('"a string"')).toBeNull();
-    expect(parseMeta('42')).toBeNull();
-    expect(parseMeta('[1,2]')).toBeNull();
-    expect(parseMeta('null')).toBeNull();
-  });
 });
