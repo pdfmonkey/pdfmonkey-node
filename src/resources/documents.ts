@@ -39,8 +39,8 @@ export interface DocumentMeta {
   [key: string]: unknown;
 }
 
-/** Payload accepted by document mutation endpoints — string or any JSON value. */
-export type DocumentPayload = string | Record<string, unknown> | unknown[];
+/** Payload accepted by document mutation endpoints — an object, or its pre-serialised JSON string. */
+export type DocumentPayload = string | Record<string, unknown>;
 
 export interface DocumentCreateParams {
   document_template_id: string;
