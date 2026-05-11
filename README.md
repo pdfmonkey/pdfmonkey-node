@@ -308,18 +308,19 @@ When `apiKey` is omitted, the client reads `process.env.PDFMONKEY_API_KEY`.
 
 ### Per-request options
 
-Every resource method accepts a trailing options object for `signal`, `timeout`, `maxRetries`, `headers`, and `idempotencyKey`:
+Every resource method accepts a trailing options object for `signal`, `timeout`, and `maxRetries`:
 
 ```ts
 await client.documents.create(
   { document_template_id: 'tpl_xxx', payload: { invoice: 1 } },
   {
-    idempotencyKey: 'order-1234',
     signal: AbortSignal.timeout(10_000),
-    headers: { 'X-Trace-Id': 'trace_abc' },
+    timeout: 60_000,
   },
 );
 ```
+
+Dynamic per-call headers (trace IDs, etc.) go through the `onRequest` hook in `ClientOptions.hooks` — mutate `ctx.headers` there.
 
 ### Browser & edge runtimes
 

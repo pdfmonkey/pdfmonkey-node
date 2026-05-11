@@ -82,10 +82,6 @@ export interface RequestOptions {
   timeout?: number;
   maxRetries?: number;
   signal?: AbortSignal;
-  /** Per-request headers, merged on top of defaults. */
-  headers?: Record<string, string>;
-  /** Sent as the `Idempotency-Key` header. */
-  idempotencyKey?: string;
 }
 
 /** Request options exposed on resource methods (no body/query). */
@@ -93,8 +89,6 @@ export interface ResourceRequestOptions {
   timeout?: number;
   maxRetries?: number;
   signal?: AbortSignal;
-  headers?: Record<string, string>;
-  idempotencyKey?: string;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -235,15 +229,10 @@ export class PDFMonkey {
 
     const headers: Record<string, string> = {
       ...this.#defaultHeaders,
-      ...opts?.headers,
       Authorization: `Bearer ${this.#apiKey}`,
       'User-Agent': USER_AGENT,
       Accept: 'application/json',
     };
-
-    if (opts?.idempotencyKey) {
-      headers['Idempotency-Key'] = opts.idempotencyKey;
-    }
 
     const body: string | null = opts?.body !== undefined ? JSON.stringify(opts.body) : null;
 

@@ -174,23 +174,6 @@ describe('Documents', () => {
     await expect(client.documents.delete('doc_1')).resolves.toBeUndefined();
   });
 
-  it('forwards per-call signal/headers/idempotencyKey to the request', async () => {
-    const { client, fetch } = createClient([{ status: 201, body: { document: docFixture } }]);
-
-    await client.documents.create(
-      { document_template_id: 'tpl_1' },
-      {
-        idempotencyKey: 'idemp-doc-1',
-        headers: { 'X-Trace-Id': 'trace_xyz' },
-      },
-    );
-
-    const [, init] = fetch.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Record<string, string>;
-    expect(headers['Idempotency-Key']).toBe('idemp-doc-1');
-    expect(headers['X-Trace-Id']).toBe('trace_xyz');
-  });
-
   it('downloads PDF bytes from a Document', async () => {
     const completed: Document = {
       ...docFixture,
