@@ -23,7 +23,6 @@ pnpm install
 | :---------------------- | :--------------------------------------- |
 | `pnpm test`             | Run the Vitest suite                     |
 | `pnpm test:watch`       | Vitest in watch mode                     |
-| `pnpm test:coverage`    | Run tests with v8 coverage               |
 | `pnpm lint`             | Biome lint + format check                |
 | `pnpm lint:fix`         | Biome auto-fix                           |
 | `pnpm typecheck`        | `tsc --noEmit`                           |
