@@ -31,8 +31,7 @@
       "!!**/.changeset",
       "!!**/.wolf",
       "!!**/.omc",
-      "!!**/coverage",
-      "!!**/examples"
+      "!!**/coverage"
     ]
   }
 }

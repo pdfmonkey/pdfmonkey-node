@@ -206,6 +206,69 @@ if (event.type === 'document.done') {
 }
 ```
 
+#### Framework recipes
+
+Two integrations have small but easy-to-miss requirements. Everything else is the verify call above.
+
+**Express** — capture the raw body, otherwise the JSON body parser mutates it and the signature stops matching:
+
+```ts
+import express from 'express';
+import { verifyWebhook } from 'pdfmonkey';
+
+const app = express();
+
+app.post(
+  '/pdfmonkey-webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    try {
+      const event = await verifyWebhook(
+        req.body.toString('utf8'),
+        {
+          'svix-id': req.header('svix-id') ?? '',
+          'svix-timestamp': req.header('svix-timestamp') ?? '',
+          'svix-signature': req.header('svix-signature') ?? '',
+        },
+        process.env.WEBHOOK_SECRET ?? '',
+      );
+      // handle event
+      res.status(204).end();
+    } catch {
+      res.status(400).send('Invalid signature');
+    }
+  },
+);
+```
+
+**Next.js App Router** — pick the runtime (`'nodejs'` or `'edge'`, both work) and read the raw body via `request.text()`:
+
+```ts
+// app/api/pdfmonkey-webhook/route.ts
+import { verifyWebhook } from 'pdfmonkey';
+
+export const runtime = 'nodejs';
+
+export async function POST(request: Request): Promise<Response> {
+  const rawBody = await request.text();
+  try {
+    const event = await verifyWebhook(
+      rawBody,
+      {
+        'svix-id': request.headers.get('svix-id') ?? '',
+        'svix-timestamp': request.headers.get('svix-timestamp') ?? '',
+        'svix-signature': request.headers.get('svix-signature') ?? '',
+      },
+      process.env.WEBHOOK_SECRET ?? '',
+    );
+    // handle event
+    return new Response(null, { status: 204 });
+  } catch {
+    return new Response('Invalid signature', { status: 400 });
+  }
+}
+```
+
 ### Other Resources
 
 ```ts
