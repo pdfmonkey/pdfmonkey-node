@@ -190,19 +190,35 @@ describe('Documents', () => {
     expect(downloadFetch).toHaveBeenCalledWith('https://cdn/x.pdf', expect.any(Object));
   });
 
-  it('downloads by ID by fetching the document first', async () => {
-    const completed = {
-      ...docFixture,
-      status: 'success' as const,
+  it('downloads by ID by fetching the document card first', async () => {
+    const cardFixture: DocumentCard = {
+      id: 'doc_1',
+      app_id: 'app_1',
+      created_at: '2026-01-01T00:00:00Z',
+      document_template_id: 'tpl_1',
+      document_template_identifier: 'invoice',
       download_url: 'https://cdn/y.pdf',
+      failure_cause: null,
+      filename: null,
+      meta: null,
+      output_type: 'pdf',
+      preview_url: 'https://preview.url',
+      public_share_link: null,
+      status: 'success',
+      updated_at: '2026-01-01T00:00:00Z',
     };
-    const { client } = createClient([{ status: 200, body: { document: completed } }]);
+    const { client, fetch } = createClient([
+      { status: 200, body: { document_card: cardFixture } },
+    ]);
     const downloadFetch = vi
       .fn()
       .mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
 
     const bytes = await client.documents.download('doc_1', { fetch: downloadFetch });
     expect(bytes).toEqual(new Uint8Array([1, 2, 3]));
+
+    const [url] = fetch.mock.calls[0] as [string];
+    expect(url).toContain('/document_cards/doc_1');
   });
 
   it('throws when the document has no download_url yet', async () => {

@@ -187,17 +187,20 @@ export class Documents extends APIResource {
    * The document must already have a `download_url`. For pending or draft
    * documents, await {@link Documents.waitForGeneration} first.
    */
-  async download(idOrDocument: string | Document, options?: DownloadOptions): Promise<Uint8Array> {
-    const response = await this.#fetchDownload(idOrDocument, options);
+  async download(
+    idOrDoc: string | Document | DocumentCard,
+    options?: DownloadOptions,
+  ): Promise<Uint8Array> {
+    const response = await this.#fetchDownload(idOrDoc, options);
     return new Uint8Array(await response.arrayBuffer());
   }
 
   /** Stream the rendered PDF for a document as a ReadableStream. */
   async downloadStream(
-    idOrDocument: string | Document,
+    idOrDoc: string | Document | DocumentCard,
     options?: DownloadOptions,
   ): Promise<ReadableStream<Uint8Array>> {
-    const response = await this.#fetchDownload(idOrDocument, options);
+    const response = await this.#fetchDownload(idOrDoc, options);
     if (!response.body) {
       throw new PDFMonkeyError('Download response has no body stream');
     }
@@ -205,10 +208,10 @@ export class Documents extends APIResource {
   }
 
   async #fetchDownload(
-    idOrDocument: string | Document,
+    idOrDoc: string | Document | DocumentCard,
     options?: DownloadOptions,
   ): Promise<Response> {
-    const url = await this.#resolveDownloadUrl(idOrDocument);
+    const url = await this.#resolveDownloadUrl(idOrDoc);
     const fetchImpl = options?.fetch ?? globalThis.fetch;
     if (typeof fetchImpl !== 'function') {
       throw new PDFMonkeyError(
@@ -224,8 +227,11 @@ export class Documents extends APIResource {
     return response;
   }
 
-  async #resolveDownloadUrl(idOrDocument: string | Document): Promise<string> {
-    const doc = typeof idOrDocument === 'string' ? await this.get(idOrDocument) : idOrDocument;
+  async #resolveDownloadUrl(idOrDoc: string | Document | DocumentCard): Promise<string> {
+    // When given a bare id we fetch the document_card endpoint — it carries
+    // download_url and is significantly cheaper than a full Document payload.
+    const doc =
+      typeof idOrDoc === 'string' ? await this._client.documentCards.get(idOrDoc) : idOrDoc;
     if (!doc.download_url) {
       throw new PDFMonkeyError(
         `Document ${doc.id} has no download_url (status: ${doc.status}). ` +
