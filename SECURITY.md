@@ -9,7 +9,7 @@ Only the latest minor release of `pdfmonkey` receives security updates.
 If you discover a security vulnerability in this SDK, please **do not** open
 a public GitHub issue.
 
-Instead, email **security@pdfmonkey.io** with:
+Instead, email **tinymonkey@pdfmonkey.io** with:
 
 - A description of the issue and its impact.
 - Reproduction steps or a proof-of-concept.

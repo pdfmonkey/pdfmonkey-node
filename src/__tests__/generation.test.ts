@@ -187,5 +187,4 @@ describe('parseMeta', () => {
   it('returns null for invalid JSON', () => {
     expect(parseMeta('not-json')).toBeNull();
   });
-
 });

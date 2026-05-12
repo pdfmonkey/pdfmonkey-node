@@ -183,7 +183,6 @@ describe('inspect symbol', () => {
     };
     expect(err[inspect]()).toBe('APIError [404] requestId=req_42: gone');
   });
-
 });
 
 describe('APIError.toJSONRedacted', () => {

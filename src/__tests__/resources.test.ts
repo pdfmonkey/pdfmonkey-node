@@ -207,9 +207,7 @@ describe('Documents', () => {
       status: 'success',
       updated_at: '2026-01-01T00:00:00Z',
     };
-    const { client, fetch } = createClient([
-      { status: 200, body: { document_card: cardFixture } },
-    ]);
+    const { client, fetch } = createClient([{ status: 200, body: { document_card: cardFixture } }]);
     const downloadFetch = vi
       .fn()
       .mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
