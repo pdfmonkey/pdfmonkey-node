@@ -9,3 +9,5 @@ coverage/
 # Local development tooling
 .planning/
 .claude/
+.wolf/
+.omc/
