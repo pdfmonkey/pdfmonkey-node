@@ -52,10 +52,10 @@ jobs:
         id: changesets
         uses: changesets/action@v2
         with:
-          publish: pnpm changeset publish
-          version: pnpm changeset version
-          commit: "chore: release"
-          title: "chore: release"
+          publish-script: pnpm changeset publish
+          version-script: pnpm changeset version
+          commit-message: "chore: release"
+          pr-title: "chore: release"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
