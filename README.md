@@ -1,4 +1,4 @@
-# pdfmonkey-node
+# pdfmonkey
 
 [![CI](https://github.com/pdfmonkey/pdfmonkey-node/actions/workflows/ci.yml/badge.svg)](https://github.com/pdfmonkey/pdfmonkey-node/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/pdfmonkey.svg)](https://www.npmjs.com/package/pdfmonkey)
