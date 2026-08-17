@@ -1,6 +1,6 @@
 {
   "name": "pdfmonkey",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Official PDFMonkey Node.js SDK — generate PDFs from HTML/CSS templates",
   "author": "PDFMonkey <tinymonkey@pdfmonkey.io> (https://www.pdfmonkey.io)",
   "homepage": "https://github.com/pdfmonkey/pdfmonkey-node#readme",
