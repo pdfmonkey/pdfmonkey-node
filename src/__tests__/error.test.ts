@@ -3,6 +3,7 @@ import {
   APIConnectionError,
   APIError,
   AuthenticationError,
+  BadGatewayError,
   BadRequestError,
   InternalServerError,
   NotFoundError,
@@ -115,6 +116,12 @@ describe('APIError.generate status mapping', () => {
     const err = APIError.generate(403, headers, { error: 'Forbidden' });
     expect(err).toBeInstanceOf(PermissionDeniedError);
   });
+
+  it('returns BadGatewayError on 502 (and is also an InternalServerError)', () => {
+    const err = APIError.generate(502, headers, null);
+    expect(err).toBeInstanceOf(BadGatewayError);
+    expect(err).toBeInstanceOf(InternalServerError);
+  });
 });
 
 describe('APIError.body', () => {
@@ -156,6 +163,38 @@ describe('APIError.toJSON', () => {
     const parsed = JSON.parse(JSON.stringify(err));
     expect(parsed.name).toBe('APIError');
     expect(parsed.status).toBe(500);
+  });
+});
+
+describe('inspect symbol', () => {
+  const inspect = Symbol.for('nodejs.util.inspect.custom');
+
+  it('PDFMonkeyError formats as "Name: message"', () => {
+    const err = new PDFMonkeyError('boom') as PDFMonkeyError & {
+      [k: symbol]: () => string;
+    };
+    expect(err[inspect]()).toBe('PDFMonkeyError: boom');
+  });
+
+  it('APIError includes status and request id when present', () => {
+    const headers = new Headers({ 'x-request-id': 'req_42' });
+    const err = new APIError(404, headers, null, 'gone') as APIError & {
+      [k: symbol]: () => string;
+    };
+    expect(err[inspect]()).toBe('APIError [404] requestId=req_42: gone');
+  });
+});
+
+describe('APIError.toJSONRedacted', () => {
+  it('omits the body field', () => {
+    const headers = new Headers({ 'x-request-id': 'req_42' });
+    const err = new APIError(400, headers, { secret: 'pii' }, 'Bad');
+    const json = err.toJSONRedacted();
+
+    expect(json.body).toBeUndefined();
+    expect(json.name).toBe('APIError');
+    expect(json.status).toBe(400);
+    expect(json.requestId).toBe('req_42');
   });
 });
 

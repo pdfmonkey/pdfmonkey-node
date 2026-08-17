@@ -1,5 +1,5 @@
-import type { QueryValue } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -21,18 +21,19 @@ export interface WorkspaceListParams {
 /** Read-only access to workspaces. */
 export class Workspaces extends APIResource {
   /** List workspaces. Returns a paginated result. */
-  async list(params?: WorkspaceListParams): Promise<Page<Workspace>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
-    return fetchPage<Workspace>(this._client, '/workspaces', 'workspaces', { query });
+  async list(
+    params?: WorkspaceListParams,
+    options?: ResourceRequestOptions,
+  ): Promise<Page<Workspace>> {
+    const query = buildListQuery({}, { page: params?.page });
+    return fetchPage<Workspace>(this._client, '/workspaces', 'workspaces', { ...options, query });
   }
 
   /** Retrieve a workspace by ID. */
-  async get(id: string): Promise<Workspace> {
+  async get(id: string, options?: ResourceRequestOptions): Promise<Workspace> {
     const response = await this._client.get<{ workspace: Workspace }>(
       `/workspaces/${encodeURIComponent(id)}`,
+      options,
     );
     return response.workspace;
   }

@@ -15,13 +15,56 @@ import { VERSION } from './version.js';
 export type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface ClientOptions {
-  apiKey: string;
+  /** Defaults to `process.env.PDFMONKEY_API_KEY` when omitted. */
+  apiKey?: string;
   baseURL?: string;
   timeout?: number;
   maxRetries?: number;
   fetch?: Fetch;
   logger?: Logger;
   defaultHeaders?: Record<string, string>;
+  hooks?: ClientHooks;
+  /**
+   * Custom retry-delay strategy. Receives the zero-based attempt number
+   * and the response headers (if a response was received) and must return
+   * the delay in milliseconds. Defaults to capped exponential backoff
+   * with full jitter, honouring the `retry-after` header.
+   */
+  retryDelay?: RetryDelayStrategy;
+}
+
+/** Computes the delay before the next retry attempt. Receives `attempt` (0-based). */
+export type RetryDelayStrategy = (attempt: number, headers?: Headers) => number;
+
+export interface RequestHookContext {
+  method: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body: string | null;
+  attempt: number;
+}
+
+export interface ResponseHookContext extends RequestHookContext {
+  response: Response;
+  durationMs: number;
+}
+
+export interface ErrorHookContext extends RequestHookContext {
+  error: unknown;
+  durationMs: number;
+}
+
+export interface ClientHooks {
+  /**
+   * Called after the request is built but before fetch is invoked. Mutating
+   * the headers map is allowed and is the supported way to inject signing
+   * headers, tracing, etc. Async hooks are awaited.
+   */
+  onRequest?: (ctx: RequestHookContext) => void | Promise<void>;
+  /** Called once a Response is received, regardless of status. */
+  onResponse?: (ctx: ResponseHookContext) => void | Promise<void>;
+  /** Called on transport-level errors (no Response). */
+  onError?: (ctx: ErrorHookContext) => void | Promise<void>;
 }
 
 export interface Logger {
@@ -41,6 +84,13 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
+/** Request options exposed on resource methods (no body/query). */
+export interface ResourceRequestOptions {
+  timeout?: number;
+  maxRetries?: number;
+  signal?: AbortSignal;
+}
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -50,10 +100,31 @@ const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY = 500;
 const MAX_RETRY_DELAY = 5_000;
+const USER_AGENT = buildUserAgent();
 
 // ── Client ─────────────────────────────────────────────────────────────────
 
-/** PDFMonkey API client. Instantiate with an API key or options object. */
+/**
+ * PDFMonkey API client. Instantiate with an API key or options object.
+ *
+ * @example
+ * ```ts
+ * import { PDFMonkey } from 'pdfmonkey';
+ *
+ * // String form
+ * const client = new PDFMonkey('your-api-key');
+ *
+ * // Options form
+ * const client2 = new PDFMonkey({
+ *   apiKey: 'your-api-key',
+ *   timeout: 10_000,
+ *   maxRetries: 3,
+ * });
+ *
+ * // Picks up PDFMONKEY_API_KEY from process.env when omitted
+ * const client3 = new PDFMonkey();
+ * ```
+ */
 export class PDFMonkey {
   readonly #apiKey: string;
   readonly baseURL: string;
@@ -62,6 +133,8 @@ export class PDFMonkey {
   readonly #fetch: Fetch;
   readonly #logger: Logger | undefined;
   readonly #defaultHeaders: Record<string, string>;
+  readonly #hooks: ClientHooks | undefined;
+  readonly #retryDelay: RetryDelayStrategy;
 
   readonly documents: Documents;
   readonly documentCards: DocumentCards;
@@ -73,16 +146,18 @@ export class PDFMonkey {
   readonly snippets: Snippets;
   readonly currentUser: CurrentUserResource;
 
-  constructor(options: ClientOptions | string) {
-    const opts: ClientOptions = typeof options === 'string' ? { apiKey: options } : options;
+  constructor(options?: ClientOptions | string) {
+    const opts: ClientOptions = typeof options === 'string' ? { apiKey: options } : (options ?? {});
+    const apiKey = opts.apiKey ?? readApiKeyFromEnv();
 
-    if (!opts.apiKey?.trim()) {
+    if (!apiKey?.trim()) {
       throw new PDFMonkeyError(
-        'The PDFMonkey API key must be provided. Pass it as a string or as { apiKey: "..." }.',
+        'The PDFMonkey API key must be provided. Pass it as a string, ' +
+          'as { apiKey: "..." }, or set PDFMONKEY_API_KEY in the environment.',
       );
     }
 
-    this.#apiKey = opts.apiKey;
+    this.#apiKey = apiKey;
     this.baseURL = (opts.baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.timeout = opts.timeout ?? DEFAULT_TIMEOUT;
     this.maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
@@ -96,6 +171,8 @@ export class PDFMonkey {
     this.#fetch = opts.fetch ?? getFetch();
     this.#logger = opts.logger;
     this.#defaultHeaders = opts.defaultHeaders ?? {};
+    this.#hooks = opts.hooks;
+    this.#retryDelay = opts.retryDelay ?? defaultRetryDelay;
 
     // Validate baseURL early to avoid confusing errors on first request
     try {
@@ -153,7 +230,7 @@ export class PDFMonkey {
     const headers: Record<string, string> = {
       ...this.#defaultHeaders,
       Authorization: `Bearer ${this.#apiKey}`,
-      'User-Agent': `pdfmonkey-node/${VERSION}`,
+      'User-Agent': USER_AGENT,
       Accept: 'application/json',
     };
 
@@ -186,6 +263,12 @@ export class PDFMonkey {
         attempt,
       });
 
+      const startedAt = Date.now();
+
+      if (this.#hooks?.onRequest) {
+        await this.#hooks.onRequest({ method, url, headers, body, attempt });
+      }
+
       try {
         const response = await this.#fetch(url, {
           method,
@@ -193,6 +276,18 @@ export class PDFMonkey {
           body,
           signal: controller.signal,
         });
+
+        if (this.#hooks?.onResponse) {
+          await this.#hooks.onResponse({
+            method,
+            url,
+            headers,
+            body,
+            attempt,
+            response: response.clone(),
+            durationMs: Date.now() - startedAt,
+          });
+        }
 
         this.#logger?.debug('Response', {
           method,
@@ -230,7 +325,7 @@ export class PDFMonkey {
 
         lastError = apiError;
 
-        const retryDelay = getRetryDelay(attempt, response.headers);
+        const retryDelay = this.#retryDelay(attempt, response.headers);
         this.#logger?.debug('Retrying', {
           attempt: attempt + 1,
           delay: retryDelay,
@@ -239,6 +334,18 @@ export class PDFMonkey {
       } catch (error) {
         clearTimeout(timeoutId);
         if (onAbort) callerSignal?.removeEventListener('abort', onAbort);
+
+        if (this.#hooks?.onError && !(error instanceof APIError)) {
+          await this.#hooks.onError({
+            method,
+            url,
+            headers,
+            body,
+            attempt,
+            error,
+            durationMs: Date.now() - startedAt,
+          });
+        }
 
         if (error instanceof APIError || error instanceof PDFMonkeyError) {
           throw error;
@@ -255,7 +362,7 @@ export class PDFMonkey {
 
         lastError = connectionError;
 
-        const retryDelay = getRetryDelay(attempt);
+        const retryDelay = this.#retryDelay(attempt);
         this.#logger?.debug('Retrying after connection error', {
           attempt: attempt + 1,
           delay: retryDelay,
@@ -287,7 +394,7 @@ function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
-function getRetryDelay(attempt: number, headers?: Headers): number {
+function defaultRetryDelay(attempt: number, headers?: Headers): number {
   if (headers) {
     const retryAfter = headers.get('retry-after');
     if (retryAfter !== null) {
@@ -329,4 +436,20 @@ function getFetch(): Fetch {
     );
   }
   return globalThis.fetch.bind(globalThis) as Fetch;
+}
+
+function readApiKeyFromEnv(): string | undefined {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
+    ?.env;
+  return env?.PDFMONKEY_API_KEY;
+}
+
+function buildUserAgent(): string {
+  const proc = (globalThis as { process?: { version?: string; platform?: string; arch?: string } })
+    .process;
+  const parts = [`pdfmonkey-node/${VERSION}`];
+  if (proc?.version) parts.push(`node/${proc.version.replace(/^v/, '')}`);
+  if (proc?.platform) parts.push(proc.platform);
+  if (proc?.arch) parts.push(proc.arch);
+  return parts.join(' ');
 }

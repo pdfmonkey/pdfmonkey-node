@@ -10,11 +10,51 @@ export interface WebhookHeaders {
 
 export type WebhookEventType = 'document.done' | 'document.error' | (string & {});
 
-export interface WebhookEvent {
-  readonly type: WebhookEventType;
+/** Payload shape for a `document.done` webhook event. */
+export interface DocumentDoneEventData {
+  readonly id: string;
+  readonly status: 'success';
+  readonly download_url: string;
+  readonly filename: string | null;
+  readonly preview_url?: string;
+  readonly checksum?: string;
+  readonly app_id?: string;
+  readonly document_template_id?: string;
+  readonly meta?: string | null;
+  readonly [key: string]: unknown;
+}
+
+/** Payload shape for a `document.error` webhook event. */
+export interface DocumentErrorEventData {
+  readonly id: string;
+  readonly status: 'failure' | 'error';
+  readonly failure_cause: string | null;
+  readonly app_id?: string;
+  readonly document_template_id?: string;
+  readonly meta?: string | null;
+  readonly [key: string]: unknown;
+}
+
+export interface DocumentDoneEvent {
+  readonly type: 'document.done';
+  readonly data: DocumentDoneEventData;
+  readonly timestamp: string;
+}
+
+export interface DocumentErrorEvent {
+  readonly type: 'document.error';
+  readonly data: DocumentErrorEventData;
+  readonly timestamp: string;
+}
+
+/** Catch-all for forward-compatible event types. */
+export interface UnknownWebhookEvent {
+  readonly type: string & {};
   readonly data: Readonly<Record<string, unknown>>;
   readonly timestamp: string;
 }
+
+export type WebhookEvent = DocumentDoneEvent | DocumentErrorEvent | UnknownWebhookEvent;
 
 export interface VerifyWebhookOptions {
   /** Tolerance in seconds for timestamp validation. Default: 300 (5 minutes). */
@@ -37,6 +77,22 @@ const WHSEC_PREFIX = 'whsec_';
  * @param options - Optional verification options (tolerance)
  * @returns The parsed webhook event
  * @throws PDFMonkeyError if verification fails
+ *
+ * @example
+ * ```ts
+ * const event = await verifyWebhook(
+ *   rawBody,
+ *   {
+ *     'svix-id': req.headers['svix-id'],
+ *     'svix-timestamp': req.headers['svix-timestamp'],
+ *     'svix-signature': req.headers['svix-signature'],
+ *   },
+ *   process.env.WEBHOOK_SECRET,
+ * );
+ * if (event.type === 'document.done') {
+ *   console.log(event.data.download_url);
+ * }
+ * ```
  */
 export async function verifyWebhook(
   payload: string,
@@ -149,7 +205,15 @@ function toBuffer(bytes: Uint8Array): ArrayBuffer {
 
 /**
  * Constant-time string comparison using double HMAC.
- * Prevents timing attacks by comparing HMAC(a) === HMAC(b) instead of a === b directly.
+ *
+ * Why this and not `crypto.timingSafeEqual`: this module targets every
+ * runtime that exposes Web Crypto (Node 20+, Bun, Deno, Cloudflare
+ * Workers, Vercel Edge), so we cannot import `node:crypto`. Web Crypto
+ * has no constant-time comparison primitive, so we hash both inputs
+ * with a per-call random key and compare the HMAC outputs byte-by-byte —
+ * any timing leak is masked by the random key the attacker does not
+ * know. Keep this implementation; do not "simplify" it to a string
+ * compare or to `node:crypto` without re-evaluating edge support.
  */
 async function constantTimeEqual(a: string, b: string): Promise<boolean> {
   const randomBytes = crypto.getRandomValues(new Uint8Array(32));

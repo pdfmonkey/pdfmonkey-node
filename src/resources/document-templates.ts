@@ -1,5 +1,5 @@
-import type { QueryValue } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -102,49 +102,56 @@ interface DocumentTemplateResponse {
 /** Manage document templates (HTML/CSS templates for PDF generation). */
 export class DocumentTemplates extends APIResource {
   /** List document template cards. Returns a paginated result. */
-  async list(params?: DocumentTemplateListParams): Promise<Page<DocumentTemplateCard>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
-    if (params?.workspace_id !== undefined) {
-      query['q[workspace_id]'] = params.workspace_id;
-    }
-    if (params?.folders !== undefined) {
-      query['q[folders]'] = params.folders;
-    }
-    if (params?.sort !== undefined) {
-      query.sort = params.sort;
-    }
+  async list(
+    params?: DocumentTemplateListParams,
+    options?: ResourceRequestOptions,
+  ): Promise<Page<DocumentTemplateCard>> {
+    const query = buildListQuery(
+      {
+        workspace_id: params?.workspace_id,
+        folders: params?.folders,
+      },
+      { page: params?.page, sort: params?.sort },
+    );
     return fetchPage<DocumentTemplateCard>(
       this._client,
       '/document_template_cards',
       'document_template_cards',
-      { query },
+      { ...options, query },
     );
   }
 
   /** Retrieve a document template by ID. */
-  async get(id: string): Promise<DocumentTemplate> {
+  async get(id: string, options?: ResourceRequestOptions): Promise<DocumentTemplate> {
     const response = await this._client.get<DocumentTemplateResponse>(
       `/document_templates/${encodeURIComponent(id)}`,
+      options,
     );
     return response.document_template;
   }
 
   /** Create a new document template. */
-  async create(params: DocumentTemplateCreateParams): Promise<DocumentTemplate> {
+  async create(
+    params: DocumentTemplateCreateParams,
+    options?: ResourceRequestOptions,
+  ): Promise<DocumentTemplate> {
     const response = await this._client.post<DocumentTemplateResponse>('/document_templates', {
+      ...options,
       body: { document_template: params },
     });
     return response.document_template;
   }
 
   /** Update a document template by ID. Uses PUT. */
-  async update(id: string, params: DocumentTemplateUpdateParams): Promise<DocumentTemplate> {
+  async update(
+    id: string,
+    params: DocumentTemplateUpdateParams,
+    options?: ResourceRequestOptions,
+  ): Promise<DocumentTemplate> {
     const response = await this._client.put<DocumentTemplateResponse>(
       `/document_templates/${encodeURIComponent(id)}`,
       {
+        ...options,
         body: { document_template: params },
       },
     );
@@ -152,7 +159,7 @@ export class DocumentTemplates extends APIResource {
   }
 
   /** Delete a document template by ID. */
-  async delete(id: string): Promise<void> {
-    await this._client.delete(`/document_templates/${encodeURIComponent(id)}`);
+  async delete(id: string, options?: ResourceRequestOptions): Promise<void> {
+    await this._client.delete(`/document_templates/${encodeURIComponent(id)}`, options);
   }
 }

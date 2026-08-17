@@ -169,6 +169,69 @@ describe('Page[Symbol.iterator]', () => {
   });
 });
 
+describe('Page.getPage', () => {
+  it('jumps to a specific page number', async () => {
+    const fetch = mockPages(
+      {
+        data: [{ id: 'card_1' }],
+        meta: { current_page: 1, total_pages: 5, next_page: 2, prev_page: null },
+      },
+      {
+        data: [{ id: 'card_3' }],
+        meta: { current_page: 3, total_pages: 5, next_page: 4, prev_page: 2 },
+      },
+    );
+    const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
+    const page1 = await client.documentCards.list();
+
+    const page3 = await page1.getPage(3);
+    expect(page3.currentPage).toBe(3);
+
+    const [url] = fetch.mock.calls[1] as [string];
+    expect(new URL(url).searchParams.get('page[number]')).toBe('3');
+  });
+
+  it('rejects out-of-range page numbers', async () => {
+    const fetch = mockPages({
+      data: [{ id: 'card_1' }],
+      meta: { current_page: 1, total_pages: 2, next_page: 2, prev_page: null },
+    });
+    const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
+    const page = await client.documentCards.list();
+
+    await expect(page.getPage(0)).rejects.toThrow('Invalid page number');
+    await expect(page.getPage(99)).rejects.toThrow('out of range');
+    await expect(page.getPage(1.5)).rejects.toThrow('Invalid page number');
+  });
+});
+
+describe('Page.pages', () => {
+  it('iterates page-by-page across the result set', async () => {
+    const fetch = mockPages(
+      {
+        data: [{ id: 'card_1' }],
+        meta: { current_page: 1, total_pages: 3, next_page: 2, prev_page: null },
+      },
+      {
+        data: [{ id: 'card_2' }],
+        meta: { current_page: 2, total_pages: 3, next_page: 3, prev_page: 1 },
+      },
+      {
+        data: [{ id: 'card_3' }],
+        meta: { current_page: 3, total_pages: 3, next_page: null, prev_page: 2 },
+      },
+    );
+    const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
+    const firstPage = await client.documentCards.list();
+
+    const seen: number[] = [];
+    for await (const page of firstPage.pages()) {
+      seen.push(page.currentPage);
+    }
+    expect(seen).toEqual([1, 2, 3]);
+  });
+});
+
 describe('Page[Symbol.asyncIterator]', () => {
   it('iterates across all pages automatically', async () => {
     const fetch = mockPages(

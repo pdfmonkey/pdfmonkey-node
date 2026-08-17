@@ -76,6 +76,21 @@ describe('PDFMonkey Client', () => {
       expect(() => new PDFMonkey({ apiKey: '\t\n' })).toThrow(PDFMonkeyError);
     });
 
+    it('falls back to PDFMONKEY_API_KEY env var', () => {
+      const original = process.env.PDFMONKEY_API_KEY;
+      process.env.PDFMONKEY_API_KEY = 'sk_env_123';
+      try {
+        const client = new PDFMonkey();
+        expect(client).toBeInstanceOf(PDFMonkey);
+
+        const explicit = new PDFMonkey({ timeout: 5_000 });
+        expect(explicit.timeout).toBe(5_000);
+      } finally {
+        if (original === undefined) delete process.env.PDFMONKEY_API_KEY;
+        else process.env.PDFMONKEY_API_KEY = original;
+      }
+    });
+
     it('throws PDFMonkeyError if timeout <= 0', () => {
       expect(() => new PDFMonkey({ apiKey: 'sk_test', timeout: 0 })).toThrow(PDFMonkeyError);
       expect(() => new PDFMonkey({ apiKey: 'sk_test', timeout: 0 })).toThrow(
@@ -401,6 +416,27 @@ describe('PDFMonkey Client', () => {
       expect(signals[1]).not.toBe(signals[2]);
     });
 
+    it('uses a custom retryDelay strategy', async () => {
+      const fetch = mockFetchSequence(
+        { status: 500, body: { error: 'err' } },
+        { status: 500, body: { error: 'err' } },
+        { status: 200, body: { id: '123' } },
+      );
+      const calls: number[] = [];
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        maxRetries: 2,
+        retryDelay: (attempt) => {
+          calls.push(attempt);
+          return 0;
+        },
+      });
+
+      await client.get('/documents/123');
+      expect(calls).toEqual([0, 1]);
+    });
+
     it('respects per-request maxRetries override', async () => {
       const fetch = mockFetchSequence(
         { status: 500, body: { error: 'err' } },
@@ -587,6 +623,67 @@ describe('PDFMonkey Client', () => {
       await expect(client.get('/documents', { signal: controller.signal })).rejects.toThrow(
         APIConnectionError,
       );
+    });
+  });
+
+  describe('hooks', () => {
+    it('calls onRequest before fetch and lets it mutate headers', async () => {
+      const fetch = mockFetch(200, { id: '123' });
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        hooks: {
+          onRequest: (ctx) => {
+            ctx.headers['X-Hook-Header'] = 'set-by-hook';
+            expect(ctx.method).toBe('GET');
+            expect(ctx.attempt).toBe(0);
+          },
+        },
+      });
+
+      await client.get('/documents/123');
+
+      const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>)['X-Hook-Header']).toBe('set-by-hook');
+    });
+
+    it('calls onResponse with the response and a duration', async () => {
+      const fetch = mockFetch(200, { id: '123' });
+      const seen: Array<{ status: number; durationMs: number }> = [];
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        hooks: {
+          onResponse: (ctx) => {
+            seen.push({ status: ctx.response.status, durationMs: ctx.durationMs });
+          },
+        },
+      });
+
+      await client.get('/documents/123');
+
+      expect(seen).toHaveLength(1);
+      expect(seen[0]?.status).toBe(200);
+      expect(seen[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('calls onError on transport failure', async () => {
+      const fetch = mockFetchError(new TypeError('fetch failed'));
+      const errors: unknown[] = [];
+      const client = new PDFMonkey({
+        apiKey: 'sk_test',
+        fetch,
+        maxRetries: 0,
+        hooks: {
+          onError: (ctx) => {
+            errors.push(ctx.error);
+          },
+        },
+      });
+
+      await expect(client.get('/documents')).rejects.toThrow(APIConnectionError);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toBeInstanceOf(TypeError);
     });
   });
 

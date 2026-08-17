@@ -8,7 +8,23 @@ export interface PaginationMeta {
   readonly prev_page: number | null;
 }
 
-/** A page of results from a paginated list endpoint. */
+/**
+ * A page of results from a paginated list endpoint.
+ *
+ * @example
+ * ```ts
+ * const page = await client.documentCards.list({ status: 'success' });
+ *
+ * // Walk one page at a time
+ * for (const card of page) console.log(card.id);
+ *
+ * // Walk every item across every page
+ * for await (const card of page) console.log(card.id);
+ *
+ * // Jump to a specific page
+ * const last = await page.getPage(page.totalPages);
+ * ```
+ */
 export class Page<T> {
   readonly data: readonly T[];
   readonly meta: PaginationMeta;
@@ -71,6 +87,29 @@ export class Page<T> {
     });
   }
 
+  /** Fetch a specific page number. Throws if `n` is outside [1, totalPages]. */
+  async getPage(n: number): Promise<Page<T>> {
+    if (!Number.isInteger(n) || n < 1) {
+      throw new PDFMonkeyError(`Invalid page number: ${n}`);
+    }
+    if (n > this.meta.total_pages) {
+      throw new PDFMonkeyError(`Page ${n} is out of range (total pages: ${this.meta.total_pages})`);
+    }
+    return fetchPage<T>(this.#client, this.#path, this.#extractKey, {
+      query: { ...this.#query, 'page[number]': n },
+    });
+  }
+
+  /** Iterate over each {@link Page} starting from this one. */
+  async *pages(): AsyncIterableIterator<Page<T>> {
+    let page: Page<T> = this;
+    while (true) {
+      yield page;
+      if (!page.hasNextPage()) break;
+      page = await page.getNextPage();
+    }
+  }
+
   /** Iterate over items in this page. */
   [Symbol.iterator](): IterableIterator<T> {
     return this.data[Symbol.iterator]();
@@ -87,6 +126,30 @@ export class Page<T> {
       page = await page.getNextPage();
     }
   }
+}
+
+/**
+ * Build a Record<string, QueryValue> from an `q[...]` filter map plus an
+ * optional `page[number]`. Skips entries whose value is undefined so
+ * callers do not have to test each one.
+ */
+export function buildListQuery(
+  filters: Record<string, QueryValue | undefined> = {},
+  options: { page?: number | undefined; sort?: string | undefined } = {},
+): Record<string, QueryValue> {
+  const query: Record<string, QueryValue> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined) {
+      query[`q[${key}]`] = value;
+    }
+  }
+  if (options.page !== undefined) {
+    query['page[number]'] = options.page;
+  }
+  if (options.sort !== undefined) {
+    query.sort = options.sort;
+  }
+  return query;
 }
 
 type PaginatedResponse = Record<string, unknown> & {

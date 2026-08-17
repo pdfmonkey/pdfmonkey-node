@@ -1,6 +1,11 @@
 # pdfmonkey-node
 
-Official Node.js SDK for the [PDFMonkey](https://www.pdfmonkey.io) API. Zero runtime dependencies, dual ESM + CommonJS.
+[![CI](https://github.com/pdfmonkey/pdfmonkey-node/actions/workflows/ci.yml/badge.svg)](https://github.com/pdfmonkey/pdfmonkey-node/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/pdfmonkey.svg)](https://www.npmjs.com/package/pdfmonkey)
+[![npm downloads](https://img.shields.io/npm/dm/pdfmonkey.svg)](https://www.npmjs.com/package/pdfmonkey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
+Official Node.js SDK for the [PDFMonkey](https://www.pdfmonkey.io) API. Zero runtime dependencies, dual ESM + CommonJS, Node 20+ and edge-runtime compatible (uses Web Crypto only).
 
 ## Installation
 
@@ -18,11 +23,13 @@ const client = new PDFMonkey('your-api-key');
 
 ### Documents
 
+> **No `client.documents.list()`** — listing returns a lightweight summary, so it lives on `client.documentCards.list()` (see [Pagination](#pagination)). All update endpoints use HTTP `PUT` (full document replacement) to match the PDFMonkey API contract; the SDK does not currently expose `PATCH`.
+
 ```ts
 // Create a document (starts as draft)
 const doc = await client.documents.create({
   document_template_id: 'tpl_xxx',
-  payload: JSON.stringify({ name: 'Alice', amount: 42 }),
+  payload: { name: 'Alice', amount: 42 }, // object — auto-stringified to JSON
   status: 'pending', // set to 'pending' to start generation immediately
 });
 
@@ -31,7 +38,7 @@ const doc = await client.documents.get('doc_xxx');
 
 // Update a document
 const updated = await client.documents.update('doc_xxx', {
-  payload: JSON.stringify({ name: 'Bob' }),
+  payload: { name: 'Bob' },
 });
 
 // Delete a document
@@ -45,7 +52,7 @@ Use the `meta` field to password-protect or set a custom filename on generated P
 ```ts
 const doc = await client.documents.create({
   document_template_id: 'tpl_xxx',
-  payload: JSON.stringify({ name: 'Alice' }),
+  payload: { name: 'Alice' },
   meta: {
     _password: 'secret123',      // encrypts the PDF (AES-256)
     _filename: 'invoice-42.pdf', // sets the download filename
@@ -57,6 +64,29 @@ const doc = await client.documents.create({
 
 `meta` accepts either an object (auto-serialized to JSON) or a pre-serialized JSON string. Works on `create`, `update`, and `generateSync`.
 
+### Downloading the PDF
+
+```ts
+// As a Uint8Array
+const bytes = await client.documents.download(doc); // or doc.id
+
+// As a ReadableStream — pipe straight to disk or an HTTP response
+const stream = await client.documents.downloadStream(doc.id);
+```
+
+The helpers throw `PDFMonkeyError` if the document has no `download_url` yet — wait for generation to complete first.
+
+### Reading meta back
+
+`Document.meta` is a JSON string on the wire. Use `parseMeta` to recover the structured object you sent:
+
+```ts
+import { parseMeta } from 'pdfmonkey';
+
+const decoded = parseMeta(doc.meta); // DocumentMeta | null
+if (decoded?._filename) console.log(decoded._filename);
+```
+
 ### Synchronous Generation
 
 Generate a PDF and wait for it to complete in a single request:
@@ -64,7 +94,7 @@ Generate a PDF and wait for it to complete in a single request:
 ```ts
 const card = await client.documents.generateSync({
   document_template_id: 'tpl_xxx',
-  payload: JSON.stringify({ invoice_number: 1234 }),
+  payload: { invoice_number: 1234 },
 });
 
 console.log(card.download_url);
@@ -77,7 +107,7 @@ Create a document then poll until generation completes:
 ```ts
 const doc = await client.documents.create({
   document_template_id: 'tpl_xxx',
-  payload: JSON.stringify({ data: 'value' }),
+  payload: { data: 'value' },
   status: 'pending',
 });
 
@@ -168,8 +198,75 @@ const event = await verifyWebhook(
   process.env.WEBHOOK_SECRET,
 );
 
-console.log(event.type); // 'document.done'
-console.log(event.data); // { id: 'doc_xxx', ... }
+// `WebhookEvent` is a discriminated union — narrow on `type`
+if (event.type === 'document.done') {
+  console.log(event.data.download_url);
+} else if (event.type === 'document.error') {
+  console.log(event.data.failure_cause);
+}
+```
+
+#### Framework recipes
+
+Two integrations have small but easy-to-miss requirements. Everything else is the verify call above.
+
+**Express** — capture the raw body, otherwise the JSON body parser mutates it and the signature stops matching:
+
+```ts
+import express from 'express';
+import { verifyWebhook } from 'pdfmonkey';
+
+const app = express();
+
+app.post(
+  '/pdfmonkey-webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    try {
+      const event = await verifyWebhook(
+        req.body.toString('utf8'),
+        {
+          'svix-id': req.header('svix-id') ?? '',
+          'svix-timestamp': req.header('svix-timestamp') ?? '',
+          'svix-signature': req.header('svix-signature') ?? '',
+        },
+        process.env.WEBHOOK_SECRET ?? '',
+      );
+      // handle event
+      res.status(204).end();
+    } catch {
+      res.status(400).send('Invalid signature');
+    }
+  },
+);
+```
+
+**Next.js App Router** — pick the runtime (`'nodejs'` or `'edge'`, both work) and read the raw body via `request.text()`:
+
+```ts
+// app/api/pdfmonkey-webhook/route.ts
+import { verifyWebhook } from 'pdfmonkey';
+
+export const runtime = 'nodejs';
+
+export async function POST(request: Request): Promise<Response> {
+  const rawBody = await request.text();
+  try {
+    const event = await verifyWebhook(
+      rawBody,
+      {
+        'svix-id': request.headers.get('svix-id') ?? '',
+        'svix-timestamp': request.headers.get('svix-timestamp') ?? '',
+        'svix-signature': request.headers.get('svix-signature') ?? '',
+      },
+      process.env.WEBHOOK_SECRET ?? '',
+    );
+    // handle event
+    return new Response(null, { status: 204 });
+  } catch {
+    return new Response('Invalid signature', { status: 400 });
+  }
+}
 ```
 
 ### Other Resources
@@ -193,14 +290,41 @@ const user = await client.currentUser.get();
 
 ```ts
 const client = new PDFMonkey({
-  apiKey: 'your-api-key',
+  apiKey: 'your-api-key',           // or set PDFMONKEY_API_KEY in the environment
   baseURL: 'https://api.pdfmonkey.io/api/v1', // default
-  timeout: 30_000,   // request timeout in ms (default: 30s)
-  maxRetries: 2,     // retry on 429/5xx (default: 2)
-  fetch: customFetch, // bring your own fetch implementation
-  logger: console,   // debug logging
+  timeout: 30_000,                  // request timeout in ms (default: 30s)
+  maxRetries: 2,                    // retry on 408/429/5xx (default: 2)
+  fetch: customFetch,               // bring your own fetch implementation
+  logger: console,                  // debug logging
+  retryDelay: (attempt) => attempt * 250, // custom backoff (optional)
+  hooks: {                          // request/response/error interceptors
+    onRequest: (ctx) => { ctx.headers['X-Trace-Id'] = newTraceId(); },
+    onResponse: (ctx) => metrics.observe(ctx.durationMs, ctx.response.status),
+  },
 });
 ```
+
+When `apiKey` is omitted, the client reads `process.env.PDFMONKEY_API_KEY`.
+
+### Per-request options
+
+Every resource method accepts a trailing options object for `signal`, `timeout`, and `maxRetries`:
+
+```ts
+await client.documents.create(
+  { document_template_id: 'tpl_xxx', payload: { invoice: 1 } },
+  {
+    signal: AbortSignal.timeout(10_000),
+    timeout: 60_000,
+  },
+);
+```
+
+Dynamic per-call headers (trace IDs, etc.) go through the `onRequest` hook in `ClientOptions.hooks` — mutate `ctx.headers` there.
+
+### Browser & edge runtimes
+
+The SDK uses only Web Crypto + global `fetch`, so `verifyWebhook` and the client both run on Cloudflare Workers, Vercel Edge, Deno, and Bun in addition to Node 20+. Pass a custom `fetch` if your runtime needs a wrapped one.
 
 ## Error Handling
 

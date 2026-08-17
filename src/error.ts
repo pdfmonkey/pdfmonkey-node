@@ -1,3 +1,5 @@
+const NODE_INSPECT = Symbol.for('nodejs.util.inspect.custom');
+
 /** Base error class for all PDFMonkey SDK errors. */
 export class PDFMonkeyError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -5,6 +7,12 @@ export class PDFMonkeyError extends Error {
     this.name = 'PDFMonkeyError';
   }
 }
+
+Object.defineProperty(PDFMonkeyError.prototype, NODE_INSPECT, {
+  value: function inspect(this: PDFMonkeyError): string {
+    return `${this.name}: ${this.message}`;
+  },
+});
 
 /** Error returned by the PDFMonkey API with HTTP status, headers, and body. */
 export class APIError extends PDFMonkeyError {
@@ -43,6 +51,15 @@ export class APIError extends PDFMonkeyError {
     if (status === 429) {
       return new RateLimitError(status, headers, body, message);
     }
+    if (status === 502) {
+      return new BadGatewayError(status, headers, body, message);
+    }
+    if (status === 503) {
+      return new ServiceUnavailableError(status, headers, body, message);
+    }
+    if (status === 504) {
+      return new GatewayTimeoutError(status, headers, body, message);
+    }
     if (status >= 500) {
       return new InternalServerError(status, headers, body, message);
     }
@@ -58,7 +75,28 @@ export class APIError extends PDFMonkeyError {
       body: this.body,
     };
   }
+
+  /**
+   * Same shape as toJSON() but with the body removed. Use when forwarding
+   * errors to logs/observability where the body may contain user input
+   * or PII you do not want to persist.
+   */
+  toJSONRedacted(): Record<string, unknown> {
+    return {
+      name: this.name,
+      message: this.message,
+      status: this.status,
+      requestId: this.requestId,
+    };
+  }
 }
+
+Object.defineProperty(APIError.prototype, NODE_INSPECT, {
+  value: function inspect(this: APIError): string {
+    const reqId = this.requestId ? ` requestId=${this.requestId}` : '';
+    return `${this.name} [${this.status}]${reqId}: ${this.message}`;
+  },
+});
 
 /** Thrown on 400 — bad request / validation error. */
 export class BadRequestError extends APIError {
@@ -118,11 +156,35 @@ export class RateLimitError extends APIError {
   }
 }
 
-/** Thrown on 500+ — server error. */
+/** Thrown on 500+ that are not 502/503/504 — server error. */
 export class InternalServerError extends APIError {
   constructor(status: number, headers: Headers, body: unknown, message: string) {
     super(status, headers, body, message);
     this.name = 'InternalServerError';
+  }
+}
+
+/** Thrown on 502 — bad gateway, an upstream PDFMonkey service is unreachable. */
+export class BadGatewayError extends InternalServerError {
+  constructor(status: number, headers: Headers, body: unknown, message: string) {
+    super(status, headers, body, message);
+    this.name = 'BadGatewayError';
+  }
+}
+
+/** Thrown on 503 — service unavailable, typically transient. */
+export class ServiceUnavailableError extends InternalServerError {
+  constructor(status: number, headers: Headers, body: unknown, message: string) {
+    super(status, headers, body, message);
+    this.name = 'ServiceUnavailableError';
+  }
+}
+
+/** Thrown on 504 — gateway timeout from a PDFMonkey upstream. */
+export class GatewayTimeoutError extends InternalServerError {
+  constructor(status: number, headers: Headers, body: unknown, message: string) {
+    super(status, headers, body, message);
+    this.name = 'GatewayTimeoutError';
   }
 }
 

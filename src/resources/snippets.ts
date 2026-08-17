@@ -1,5 +1,5 @@
-import type { QueryValue } from '../client.js';
-import { fetchPage, type Page } from '../pagination.js';
+import type { ResourceRequestOptions } from '../client.js';
+import { buildListQuery, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -39,33 +39,39 @@ interface SnippetResponse {
 /** Manage reusable HTML snippets shared across templates. */
 export class Snippets extends APIResource {
   /** List snippets. Returns a paginated result. */
-  async list(params?: SnippetListParams): Promise<Page<Snippet>> {
-    const query: Record<string, QueryValue> = {};
-    if (params?.page !== undefined) {
-      query['page[number]'] = params.page;
-    }
-    return fetchPage<Snippet>(this._client, '/snippets', 'snippets', { query });
+  async list(params?: SnippetListParams, options?: ResourceRequestOptions): Promise<Page<Snippet>> {
+    const query = buildListQuery({}, { page: params?.page });
+    return fetchPage<Snippet>(this._client, '/snippets', 'snippets', { ...options, query });
   }
 
   /** Retrieve a snippet by ID. */
-  async get(id: string): Promise<Snippet> {
-    const response = await this._client.get<SnippetResponse>(`/snippets/${encodeURIComponent(id)}`);
+  async get(id: string, options?: ResourceRequestOptions): Promise<Snippet> {
+    const response = await this._client.get<SnippetResponse>(
+      `/snippets/${encodeURIComponent(id)}`,
+      options,
+    );
     return response.snippet;
   }
 
   /** Create a new snippet. */
-  async create(params: SnippetCreateParams): Promise<Snippet> {
+  async create(params: SnippetCreateParams, options?: ResourceRequestOptions): Promise<Snippet> {
     const response = await this._client.post<SnippetResponse>('/snippets', {
+      ...options,
       body: { snippet: params },
     });
     return response.snippet;
   }
 
   /** Update a snippet by ID. Uses PUT. */
-  async update(id: string, params: SnippetUpdateParams): Promise<Snippet> {
+  async update(
+    id: string,
+    params: SnippetUpdateParams,
+    options?: ResourceRequestOptions,
+  ): Promise<Snippet> {
     const response = await this._client.put<SnippetResponse>(
       `/snippets/${encodeURIComponent(id)}`,
       {
+        ...options,
         body: { snippet: params },
       },
     );
@@ -73,7 +79,7 @@ export class Snippets extends APIResource {
   }
 
   /** Delete a snippet by ID. */
-  async delete(id: string): Promise<void> {
-    await this._client.delete(`/snippets/${encodeURIComponent(id)}`);
+  async delete(id: string, options?: ResourceRequestOptions): Promise<void> {
+    await this._client.delete(`/snippets/${encodeURIComponent(id)}`, options);
   }
 }

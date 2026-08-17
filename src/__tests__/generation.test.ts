@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PDFMonkeyError } from '../error.js';
 import type { DocumentCard } from '../resources/document-cards.js';
 import type { Document } from '../resources/documents.js';
+import { parseMeta } from '../resources/documents.js';
 import { createClient } from './helpers.js';
 
 const docFixture: Document = {
@@ -147,5 +148,43 @@ describe('waitForGeneration', () => {
     await expect(
       client.documents.waitForGeneration('doc_1', { interval: 100, timeout: 10 }),
     ).rejects.toThrow(/timed out/);
+  });
+
+  it('rejects maxInterval < interval', async () => {
+    const { client } = createClient([]);
+
+    await expect(
+      client.documents.waitForGeneration('doc_1', { interval: 1000, maxInterval: 500 }),
+    ).rejects.toThrow('maxInterval must be >= interval');
+  });
+
+  it('treats maxInterval === interval as disabling backoff', async () => {
+    // Two pending polls then success — succeeds without timing out, which
+    // confirms backoff respects the cap.
+    const { client } = createClient([
+      { status: 200, body: { document: { ...docFixture, status: 'generating' } } },
+      { status: 200, body: { document: { ...docFixture, status: 'generating' } } },
+      { status: 200, body: { document: docFixture } },
+    ]);
+
+    const doc = await client.documents.waitForGeneration('doc_1', {
+      interval: 1,
+      maxInterval: 1,
+    });
+    expect(doc.status).toBe('success');
+  });
+});
+
+describe('parseMeta', () => {
+  it('parses a JSON object string', () => {
+    expect(parseMeta('{"_filename":"a.pdf","x":1}')).toEqual({ _filename: 'a.pdf', x: 1 });
+  });
+
+  it('returns null for null input', () => {
+    expect(parseMeta(null)).toBeNull();
+  });
+
+  it('returns null for invalid JSON', () => {
+    expect(parseMeta('not-json')).toBeNull();
   });
 });
