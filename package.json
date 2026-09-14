@@ -72,8 +72,8 @@
     "@changesets/cli": "^3.0.0",
     "publint": "^0.3.23",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
