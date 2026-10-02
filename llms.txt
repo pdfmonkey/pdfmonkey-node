@@ -250,6 +250,9 @@ const prev = await page.getPreviousPage(); // throws if no previous page
 `listAll()` on workspaces, documentTemplates, snippets and templateFolders fetches everything in one request (`page=all`) and returns `T[]`. Not available on documentCards.
 
 ```ts
+const workspaces = await client.workspaces.listAll();
+const templates = await client.documentTemplates.listAll({ workspace_id: 'ws_xxx' });
+const snippets = await client.snippets.listAll({ workspace_id: 'ws_xxx' });
 const folders = await client.templateFolders.listAll({ workspace_id: 'ws_xxx' });
 ```
 

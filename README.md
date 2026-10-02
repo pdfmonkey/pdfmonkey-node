@@ -173,7 +173,10 @@ if (page.hasNextPage()) {
 Workspaces, document templates, snippets and template folders also expose `listAll()`, which fetches every item in a single request (`page=all`) and returns a plain array. Document cards do not support it, so iterate with `for await (const card of page)` instead.
 
 ```ts
+const workspaces = await client.workspaces.listAll();
+const templates = await client.documentTemplates.listAll({ workspace_id: 'ws_xxx' });
 const snippets = await client.snippets.listAll({ workspace_id: 'ws_xxx' });
+const folders = await client.templateFolders.listAll({ workspace_id: 'ws_xxx' });
 ```
 
 ### Webhooks
