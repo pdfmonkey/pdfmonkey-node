@@ -170,6 +170,15 @@ if (page.hasNextPage()) {
 }
 ```
 
+Workspaces, document templates, snippets and template folders also expose `listAll()`, which fetches every item in a single request (`page=all`) and returns a plain array. Document cards do not support it, so iterate with `for await (const card of page)` instead.
+
+```ts
+const workspaces = await client.workspaces.listAll();
+const templates = await client.documentTemplates.listAll({ workspace_id: 'ws_xxx' });
+const snippets = await client.snippets.listAll({ workspace_id: 'ws_xxx' });
+const folders = await client.templateFolders.listAll({ workspace_id: 'ws_xxx' });
+```
+
 ### Webhooks
 
 Register webhook endpoints:
@@ -273,11 +282,11 @@ export async function POST(request: Request): Promise<Response> {
 
 ```ts
 // Snippets
-const snippets = await client.snippets.list();
+const snippets = await client.snippets.list({ workspace_id: 'ws_xxx' });
 await client.snippets.create({ identifier: 'header', code: '<div>Header</div>', workspace_id: 'ws_xxx' });
 
 // Template Folders
-const folders = await client.templateFolders.list();
+const folders = await client.templateFolders.list({ workspace_id: 'ws_xxx' });
 
 // Workspaces
 const workspaces = await client.workspaces.list();

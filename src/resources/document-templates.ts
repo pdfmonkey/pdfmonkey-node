@@ -1,5 +1,5 @@
 import type { ResourceRequestOptions } from '../client.js';
-import { buildListQuery, fetchPage, type Page } from '../pagination.js';
+import { buildListQuery, fetchAll, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -114,6 +114,23 @@ export class DocumentTemplates extends APIResource {
       { page: params?.page, sort: params?.sort },
     );
     return fetchPage<DocumentTemplateCard>(
+      this._client,
+      '/document_template_cards',
+      'document_template_cards',
+      { ...options, query },
+    );
+  }
+
+  /** List all document template cards in a single request. */
+  async listAll(
+    params?: Omit<DocumentTemplateListParams, 'page'>,
+    options?: ResourceRequestOptions,
+  ): Promise<DocumentTemplateCard[]> {
+    const query = buildListQuery(
+      { workspace_id: params?.workspace_id, folders: params?.folders },
+      { sort: params?.sort },
+    );
+    return fetchAll<DocumentTemplateCard>(
       this._client,
       '/document_template_cards',
       'document_template_cards',

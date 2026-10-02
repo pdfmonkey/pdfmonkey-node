@@ -159,7 +159,7 @@ const engines = await client.pdfEngines.list();
 ### Template Folders
 
 ```ts
-const page = await client.templateFolders.list();
+const page = await client.templateFolders.list({ workspace_id: 'ws_xxx' });
 const folder = await client.templateFolders.get('fold_xxx');
 const created = await client.templateFolders.create({ identifier: 'invoices' });
 const updated = await client.templateFolders.update('fold_xxx', { identifier: 'reports' });
@@ -171,7 +171,7 @@ await client.templateFolders.delete('fold_xxx');
 Reusable HTML partials shared across templates.
 
 ```ts
-const page = await client.snippets.list();
+const page = await client.snippets.list({ workspace_id: 'ws_xxx' });
 const snippet = await client.snippets.get('snp_xxx');
 const created = await client.snippets.create({
   identifier: 'header',
@@ -245,6 +245,15 @@ page.hasPreviousPage(); // boolean
 
 const next = await page.getNextPage();     // throws if no next page
 const prev = await page.getPreviousPage(); // throws if no previous page
+```
+
+`listAll()` on workspaces, documentTemplates, snippets and templateFolders fetches everything in one request (`page=all`) and returns `T[]`. Not available on documentCards.
+
+```ts
+const workspaces = await client.workspaces.listAll();
+const templates = await client.documentTemplates.listAll({ workspace_id: 'ws_xxx' });
+const snippets = await client.snippets.listAll({ workspace_id: 'ws_xxx' });
+const folders = await client.templateFolders.listAll({ workspace_id: 'ws_xxx' });
 ```
 
 ## Error Handling
