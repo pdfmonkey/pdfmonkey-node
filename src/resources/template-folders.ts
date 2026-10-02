@@ -1,5 +1,5 @@
 import type { ResourceRequestOptions } from '../client.js';
-import { buildListQuery, fetchPage, type Page } from '../pagination.js';
+import { buildListQuery, fetchAll, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -21,6 +21,8 @@ export interface TemplateFolderUpdateParams {
 }
 
 export interface TemplateFolderListParams {
+  /** Required: the API returns no folders without a workspace filter. */
+  workspace_id: string;
   page?: number;
 }
 
@@ -32,13 +34,25 @@ interface TemplateFolderResponse {
 
 /** Manage folders for organizing document templates. */
 export class TemplateFolders extends APIResource {
-  /** List template folders. Returns a paginated result. */
+  /** List a workspace's template folders. Returns a paginated result. */
   async list(
-    params?: TemplateFolderListParams,
+    params: TemplateFolderListParams,
     options?: ResourceRequestOptions,
   ): Promise<Page<TemplateFolder>> {
-    const query = buildListQuery({}, { page: params?.page });
+    const query = buildListQuery({ workspace_id: params.workspace_id }, { page: params.page });
     return fetchPage<TemplateFolder>(this._client, '/template_folders', 'template_folders', {
+      ...options,
+      query,
+    });
+  }
+
+  /** List all of a workspace's template folders in a single request. */
+  async listAll(
+    params: Omit<TemplateFolderListParams, 'page'>,
+    options?: ResourceRequestOptions,
+  ): Promise<TemplateFolder[]> {
+    const query = buildListQuery({ workspace_id: params.workspace_id });
+    return fetchAll<TemplateFolder>(this._client, '/template_folders', 'template_folders', {
       ...options,
       query,
     });

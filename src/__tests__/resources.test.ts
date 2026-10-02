@@ -485,7 +485,7 @@ describe('TemplateFolders', () => {
       },
     ]);
 
-    await client.templateFolders.list({ page: 2 });
+    await client.templateFolders.list({ workspace_id: 'ws_1', page: 2 });
 
     const [url] = fetch.mock.calls[0] as [string];
     const parsed = new URL(url);
@@ -493,7 +493,7 @@ describe('TemplateFolders', () => {
   });
 
   it('lists folders', async () => {
-    const { client } = createClient([
+    const { client, fetch } = createClient([
       {
         status: 200,
         body: {
@@ -503,8 +503,22 @@ describe('TemplateFolders', () => {
       },
     ]);
 
-    const page = await client.templateFolders.list();
+    const page = await client.templateFolders.list({ workspace_id: 'ws_1' });
     expect(page.data).toHaveLength(1);
+    const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
+    expect(parsed.searchParams.get('q[workspace_id]')).toBe('ws_1');
+  });
+
+  it('lists all folders in a single request', async () => {
+    const { client, fetch } = createClient([
+      { status: 200, body: { template_folders: [{ id: 'fold_1' }, { id: 'fold_2' }] } },
+    ]);
+
+    const folders = await client.templateFolders.listAll({ workspace_id: 'ws_1' });
+    expect(folders).toHaveLength(2);
+    const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
+    expect(parsed.searchParams.get('page')).toBe('all');
+    expect(parsed.searchParams.get('q[workspace_id]')).toBe('ws_1');
   });
 
   it('gets a folder by ID', async () => {
@@ -588,6 +602,16 @@ describe('Workspaces', () => {
     const ws = await client.workspaces.get('ws_1');
     expect(ws.identifier).toBe('main');
   });
+
+  it('lists all workspaces in a single request', async () => {
+    const { client, fetch } = createClient([
+      { status: 200, body: { workspaces: [{ id: 'ws_1' }, { id: 'ws_2' }] } },
+    ]);
+
+    const workspaces = await client.workspaces.listAll();
+    expect(workspaces).toHaveLength(2);
+    expect(new URL(fetch.mock.calls[0]?.[0] as string).searchParams.get('page')).toBe('all');
+  });
 });
 
 // ── Snippets ───────────────────────────────────────────────────────────────
@@ -609,7 +633,7 @@ describe('Snippets', () => {
   });
 
   it('lists snippets', async () => {
-    const { client } = createClient([
+    const { client, fetch } = createClient([
       {
         status: 200,
         body: {
@@ -619,8 +643,29 @@ describe('Snippets', () => {
       },
     ]);
 
-    const page = await client.snippets.list();
+    const page = await client.snippets.list({ workspace_id: 'ws_1' });
     expect(page.data).toHaveLength(1);
+    const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
+    expect(parsed.searchParams.get('q[workspace_id]')).toBe('ws_1');
+  });
+
+  it('lists all snippets in a single request', async () => {
+    const { client, fetch } = createClient([
+      { status: 200, body: { snippets: [{ id: 'snp_1' }, { id: 'snp_2' }] } },
+    ]);
+
+    const snippets = await client.snippets.listAll({ workspace_id: 'ws_1' });
+    expect(snippets).toHaveLength(2);
+    const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
+    expect(parsed.searchParams.get('page')).toBe('all');
+    expect(parsed.searchParams.get('q[workspace_id]')).toBe('ws_1');
+  });
+
+  it('rejects a malformed listAll response', async () => {
+    const { client } = createClient([{ status: 200, body: { snippet: {} } }]);
+    await expect(client.snippets.listAll({ workspace_id: 'ws_1' })).rejects.toThrow(
+      'expected "snippets" to be an array',
+    );
   });
 
   it('lists snippets with page param', async () => {
@@ -634,7 +679,7 @@ describe('Snippets', () => {
       },
     ]);
 
-    await client.snippets.list({ page: 2 });
+    await client.snippets.list({ workspace_id: 'ws_1', page: 2 });
 
     const [url] = fetch.mock.calls[0] as [string];
     const parsed = new URL(url);

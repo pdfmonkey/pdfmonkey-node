@@ -1,5 +1,5 @@
 import type { ResourceRequestOptions } from '../client.js';
-import { buildListQuery, fetchPage, type Page } from '../pagination.js';
+import { buildListQuery, fetchAll, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ export interface SnippetUpdateParams {
 }
 
 export interface SnippetListParams {
+  /** Required: the API returns no snippets without a workspace filter. */
+  workspace_id: string;
   page?: number;
 }
 
@@ -38,10 +40,19 @@ interface SnippetResponse {
 
 /** Manage reusable HTML snippets shared across templates. */
 export class Snippets extends APIResource {
-  /** List snippets. Returns a paginated result. */
-  async list(params?: SnippetListParams, options?: ResourceRequestOptions): Promise<Page<Snippet>> {
-    const query = buildListQuery({}, { page: params?.page });
+  /** List a workspace's snippets. Returns a paginated result. */
+  async list(params: SnippetListParams, options?: ResourceRequestOptions): Promise<Page<Snippet>> {
+    const query = buildListQuery({ workspace_id: params.workspace_id }, { page: params.page });
     return fetchPage<Snippet>(this._client, '/snippets', 'snippets', { ...options, query });
+  }
+
+  /** List all of a workspace's snippets in a single request. */
+  async listAll(
+    params: Omit<SnippetListParams, 'page'>,
+    options?: ResourceRequestOptions,
+  ): Promise<Snippet[]> {
+    const query = buildListQuery({ workspace_id: params.workspace_id });
+    return fetchAll<Snippet>(this._client, '/snippets', 'snippets', { ...options, query });
   }
 
   /** Retrieve a snippet by ID. */

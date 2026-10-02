@@ -1,5 +1,5 @@
 import type { ResourceRequestOptions } from '../client.js';
-import { buildListQuery, fetchPage, type Page } from '../pagination.js';
+import { buildListQuery, fetchAll, fetchPage, type Page } from '../pagination.js';
 import { APIResource } from '../resource.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -27,6 +27,11 @@ export class Workspaces extends APIResource {
   ): Promise<Page<Workspace>> {
     const query = buildListQuery({}, { page: params?.page });
     return fetchPage<Workspace>(this._client, '/workspaces', 'workspaces', { ...options, query });
+  }
+
+  /** List all workspaces in a single request. */
+  async listAll(options?: ResourceRequestOptions): Promise<Workspace[]> {
+    return fetchAll<Workspace>(this._client, '/workspaces', 'workspaces', options);
   }
 
   /** Retrieve a workspace by ID. */

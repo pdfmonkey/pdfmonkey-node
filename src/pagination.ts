@@ -173,3 +173,24 @@ export async function fetchPage<T>(
   }
   return new Page<T>(client, path, opts?.query ?? {}, data as T[], response.meta, extractKey);
 }
+
+/**
+ * Fetch every item of a list endpoint in a single request (`page=all`).
+ * Only endpoints backed by the generic index support it; document cards do not.
+ */
+export async function fetchAll<T>(
+  client: PDFMonkey,
+  path: string,
+  extractKey: string,
+  opts?: RequestOptions,
+): Promise<T[]> {
+  const response = await client.get<Record<string, unknown>>(path, {
+    ...opts,
+    query: { ...opts?.query, page: 'all' },
+  });
+  const data = response[extractKey];
+  if (!Array.isArray(data)) {
+    throw new PDFMonkeyError(`Invalid list response: expected "${extractKey}" to be an array`);
+  }
+  return data as T[];
+}
