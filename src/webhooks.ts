@@ -11,8 +11,10 @@ export interface WebhookHeaders {
 
 /**
  * Body of a `documents.generation.success` or `documents.generation.failure`
- * webhook: the document card, as returned by `documentCards.get()`. Svix does
- * not put the event type in the body, so tell them apart with `document.status`.
+ * webhook: the document card, as returned by `documentCards.get()` (no
+ * `payload`, `generation_logs` or `checksum`; `meta` is a JSON string). Svix
+ * does not put the event type in the body, so tell them apart with
+ * `document.status`.
  */
 export interface DocumentWebhookPayload {
   readonly document: DocumentCard;
