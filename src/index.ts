@@ -61,7 +61,7 @@ export type {
 export { DEFAULT_SYNC_TIMEOUT, Documents, parseMeta } from './resources/documents.js';
 export type { PdfEngine } from './resources/pdf-engines.js';
 export { PdfEngines } from './resources/pdf-engines.js';
-export type { RestHook, RestHookCreateParams } from './resources/rest-hooks.js';
+export type { RestHook, RestHookCreateParams, RestHookEvent } from './resources/rest-hooks.js';
 export { RestHooks } from './resources/rest-hooks.js';
 export type {
   Snippet,

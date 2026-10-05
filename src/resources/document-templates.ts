@@ -48,6 +48,7 @@ export interface DocumentTemplateCard {
 
 export interface DocumentTemplateCreateParams {
   identifier: string;
+  workspace_id: string;
   body_draft?: string;
   scss_style_draft?: string;
   sample_data_draft?: string;
@@ -152,9 +153,11 @@ export class DocumentTemplates extends APIResource {
     params: DocumentTemplateCreateParams,
     options?: ResourceRequestOptions,
   ): Promise<DocumentTemplate> {
+    // The API still names the workspace `app_id` on templates.
+    const { workspace_id, ...rest } = params;
     const response = await this._client.post<DocumentTemplateResponse>('/document_templates', {
       ...options,
-      body: { document_template: params },
+      body: { document_template: { ...rest, app_id: workspace_id } },
     });
     return response.document_template;
   }

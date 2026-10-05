@@ -1,23 +1,33 @@
 import type { ResourceRequestOptions } from '../client.js';
 import { APIResource } from '../resource.js';
-import type { WebhookEventType } from '../webhooks.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export type RestHookEvent =
+  | 'documents.generation.success'
+  | 'documents.generation.failure'
+  | (string & {});
+
 export interface RestHook {
   readonly id: string;
-  readonly enabled: boolean;
-  readonly events: readonly WebhookEventType[];
   readonly url: string;
-  readonly workspace_id: string | null;
+  /** Comma-separated list of subscribed events, as stored by the API. */
+  readonly event: string;
+  readonly platform: string;
+  readonly workspace_id: string;
   readonly document_template_ids: readonly string[];
+  readonly custom_channel: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
 }
 
 export interface RestHookCreateParams {
   url: string;
-  events: readonly WebhookEventType[];
-  workspace_id?: string;
+  workspace_id: string;
+  events: readonly RestHookEvent[];
+  /** Restrict the webhook to these templates. Defaults to every template in the workspace. */
   document_template_ids?: readonly string[];
+  custom_channel?: string;
 }
 
 interface RestHookResponse {
@@ -34,9 +44,10 @@ interface RestHookResponse {
 export class RestHooks extends APIResource {
   /** Register a new webhook endpoint. */
   async create(params: RestHookCreateParams, options?: ResourceRequestOptions): Promise<RestHook> {
+    const { events, ...rest } = params;
     const response = await this._client.post<RestHookResponse>('/rest_hooks', {
       ...options,
-      body: { rest_hook: params },
+      body: { rest_hook: { ...rest, event: events.join(','), platform: 'api' } },
     });
     return response.rest_hook;
   }

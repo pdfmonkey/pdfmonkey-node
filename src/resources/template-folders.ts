@@ -14,6 +14,7 @@ export interface TemplateFolder {
 
 export interface TemplateFolderCreateParams {
   identifier: string;
+  workspace_id: string;
 }
 
 export interface TemplateFolderUpdateParams {
@@ -74,7 +75,7 @@ export class TemplateFolders extends APIResource {
   ): Promise<TemplateFolder> {
     const response = await this._client.post<TemplateFolderResponse>('/template_folders', {
       ...options,
-      body: { template_folder: params },
+      body: { template_folder: { identifier: params.identifier, app_id: params.workspace_id } },
     });
     return response.template_folder;
   }

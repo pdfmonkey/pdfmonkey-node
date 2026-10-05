@@ -43,52 +43,53 @@ function bytesToBase64(bytes: Uint8Array): string {
 // ── RestHooks Resource ────────────────────────────────────────────────────
 
 describe('RestHooks', () => {
-  it('creates a rest hook', async () => {
+  it('creates a rest hook, joining events and setting platform', async () => {
     const hook = {
       id: 'hook_1',
-      enabled: true,
-      events: ['document.done'],
       url: 'https://example.com/webhook',
+      event: 'documents.generation.success,documents.generation.failure',
+      platform: 'api',
+      workspace_id: 'ws_1',
+      document_template_ids: [],
+      custom_channel: null,
     };
     const { client, fetch } = createClient([{ status: 201, body: { rest_hook: hook } }]);
 
     const result = await client.restHooks.create({
       url: 'https://example.com/webhook',
-      events: ['document.done'],
+      workspace_id: 'ws_1',
+      events: ['documents.generation.success', 'documents.generation.failure'],
     });
 
     expect(result.id).toBe('hook_1');
     const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/rest_hooks');
     expect(init.method).toBe('POST');
-    const body = JSON.parse(init.body as string);
-    expect(body.rest_hook.url).toBe('https://example.com/webhook');
+    expect(JSON.parse(init.body as string)).toEqual({
+      rest_hook: {
+        url: 'https://example.com/webhook',
+        workspace_id: 'ws_1',
+        event: 'documents.generation.success,documents.generation.failure',
+        platform: 'api',
+      },
+    });
   });
 
-  it('creates a rest hook with workspace_id and document_template_ids', async () => {
-    const hook = {
-      id: 'hook_2',
-      enabled: true,
-      events: ['document.done'],
-      url: 'https://example.com/webhook',
-      workspace_id: 'ws_1',
-      document_template_ids: ['tpl_1', 'tpl_2'],
-    };
-    const { client, fetch } = createClient([{ status: 201, body: { rest_hook: hook } }]);
+  it('creates a rest hook restricted to templates', async () => {
+    const { client, fetch } = createClient([{ status: 201, body: { rest_hook: { id: 'h' } } }]);
 
-    const result = await client.restHooks.create({
+    await client.restHooks.create({
       url: 'https://example.com/webhook',
-      events: ['document.done'],
       workspace_id: 'ws_1',
+      events: ['documents.generation.success'],
       document_template_ids: ['tpl_1', 'tpl_2'],
+      custom_channel: 'invoices',
     });
 
-    expect(result.workspace_id).toBe('ws_1');
-    expect(result.document_template_ids).toEqual(['tpl_1', 'tpl_2']);
     const [, init] = fetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.rest_hook.workspace_id).toBe('ws_1');
     expect(body.rest_hook.document_template_ids).toEqual(['tpl_1', 'tpl_2']);
+    expect(body.rest_hook.custom_channel).toBe('invoices');
   });
 
   it('deletes a rest hook', async () => {
