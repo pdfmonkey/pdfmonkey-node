@@ -1,15 +1,16 @@
 # pdfmonkey
 
-## Unreleased
+## 1.4.0
 
 ### Minor Changes
 
-- Adding the `search` filter to `documentCards.list()` (exact document ID or partial filename) and letting `status` take several statuses. Query values now accept arrays, sent as `key[]=a&key[]=b`. Documenting the accepted `folders` and `sort` values on `documentTemplates.list()`.
-- Fixing `verifyWebhook()`, which rejected every real PDFMonkey webhook: it expected a `{ type, data, timestamp }` envelope the API never sends. It now returns the delivered body as a `WebhookPayload`, either `{ document }` (the document card, for `documents.generation.success`/`failure`) or the `quota.warning` usage figures. Narrow with `'document' in payload` and check `payload.document.status`. Removing the `WebhookEvent`, `WebhookEventType`, `DocumentDoneEvent`, `DocumentErrorEvent`, their `*Data` types and `UnknownWebhookEvent`.
+- dfafa9f: Adding the `search` filter to `documentCards.list()` (exact document ID or partial filename) and letting `status` take several statuses. Query values now accept arrays, sent as `key[]=a&key[]=b`. Documenting the accepted `folders` and `sort` values on `documentTemplates.list()`.
+  
+  Fixing `workspaceCards.update()` to send `PUT` instead of `PATCH`, matching the API and the other update endpoints. Removing the `'error'` value from `DocumentStatus`: the API never returns it.
+- af5932f: Fixing `verifyWebhook()`, which rejected every real PDFMonkey webhook: it expected a `{ type, data, timestamp }` envelope the API never sends. It now returns the delivered body as a `WebhookPayload`, either `{ document }` (the document card, for `documents.generation.success`/`failure`) or the `quota.warning` usage figures. Narrow with `'document' in payload` and check `payload.document.status`. Removing the `WebhookEvent`, `WebhookEventType`, `DocumentDoneEvent`, `DocumentErrorEvent`, their `*Data` types and `UnknownWebhookEvent`.
 
 ### Patch Changes
 
-- Fixing `workspaceCards.update()` to send `PUT` instead of `PATCH`, matching the API and the other update endpoints. Removing the `'error'` value from `DocumentStatus`: the API never returns it.
 - ad9d7cd: Fixing `documents.waitForGeneration()` so its `timeout` is a true total budget: in-flight polls and their retries are now aborted when it expires, instead of resolving with a late success or reporting the timeout only after a slow response came back.
 
 ## 1.3.0
