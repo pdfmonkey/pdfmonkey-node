@@ -1,5 +1,11 @@
 # pdfmonkey
 
+## 1.3.0
+
+### Minor Changes
+
+- 44349df: Adding `client.workspaceCards` to call the `workspace_cards` endpoint: `list()`/`listAll()` return workspace summaries including the admin's `current_plan`, and `update()` renames a workspace.
+
 ## 1.2.0
 
 ### Minor Changes
