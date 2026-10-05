@@ -25,7 +25,7 @@ export interface DocumentCard {
 export interface DocumentCardListParams {
   page?: number;
   document_template_id?: string;
-  /** A document ID matches exactly; any other text matches part of the filename. */
+  /** A document ID matches exactly; any other text matches part of the filename (case-sensitive). */
   search?: string;
   /** One status, or several to match any of them. An empty array applies no status filter. */
   status?: DocumentStatus | DocumentStatus[];
