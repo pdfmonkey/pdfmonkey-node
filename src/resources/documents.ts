@@ -271,34 +271,60 @@ export class Documents extends APIResource {
       );
     }
 
+    if (signal?.aborted) {
+      throw new PDFMonkeyError('waitForGeneration aborted');
+    }
+
+    // The budget covers in-flight polls (and their retries), not just the
+    // sleeps between them, so a slow response can't push us past `timeout`.
+    const deadline = new AbortController();
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      deadline.abort();
+    }, timeout);
+    const onCallerAbort = () => deadline.abort(signal?.reason);
+    signal?.addEventListener('abort', onCallerAbort, { once: true });
+
     const start = Date.now();
     let currentInterval = interval;
+    let lastStatus: Document['status'] | undefined;
 
-    while (true) {
-      if (signal?.aborted) {
-        throw new PDFMonkeyError('waitForGeneration aborted');
+    try {
+      while (true) {
+        const doc = await this.get(id, { signal: deadline.signal });
+        lastStatus = doc.status;
+
+        if (doc.status === 'success') {
+          return doc;
+        }
+
+        if (doc.status === 'failure' || doc.status === 'error') {
+          throw new PDFMonkeyError(
+            `Document generation failed: ${doc.failure_cause ?? 'Unknown error'}`,
+          );
+        }
+
+        if (Date.now() - start + currentInterval > timeout) {
+          throw new PDFMonkeyError(
+            `Document generation timed out after ${timeout}ms (status: ${doc.status})`,
+          );
+        }
+
+        await abortableSleep(currentInterval, deadline.signal);
+        currentInterval = Math.min(currentInterval * 2, maxInterval);
       }
-
-      const doc = await this.get(id, signal ? { signal } : undefined);
-
-      if (doc.status === 'success') {
-        return doc;
-      }
-
-      if (doc.status === 'failure' || doc.status === 'error') {
+    } catch (error) {
+      if (timedOut && !signal?.aborted) {
         throw new PDFMonkeyError(
-          `Document generation failed: ${doc.failure_cause ?? 'Unknown error'}`,
+          `Document generation timed out after ${timeout}ms (status: ${lastStatus ?? 'unknown'})`,
+          { cause: error },
         );
       }
-
-      if (Date.now() - start + currentInterval > timeout) {
-        throw new PDFMonkeyError(
-          `Document generation timed out after ${timeout}ms (status: ${doc.status})`,
-        );
-      }
-
-      await abortableSleep(currentInterval, signal);
-      currentInterval = Math.min(currentInterval * 2, maxInterval);
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onCallerAbort);
     }
   }
 }
