@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { PDFMonkey } from '../client.js';
 import { PDFMonkeyError } from '../error.js';
 import type { DocumentCard } from '../resources/document-cards.js';
 import type { Document } from '../resources/documents.js';
@@ -148,6 +149,68 @@ describe('waitForGeneration', () => {
     await expect(
       client.documents.waitForGeneration('doc_1', { interval: 100, timeout: 10 }),
     ).rejects.toThrow(/timed out/);
+  });
+
+  describe('with a slow, abort-aware fetch', () => {
+    // Responds after `delayMs` unless the request signal aborts first.
+    function slowClient(status: Document['status'], delayMs: number) {
+      const fetch = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((resolve, reject) => {
+            const timer = setTimeout(
+              () => resolve(Response.json({ document: { ...docFixture, status } })),
+              delayMs,
+            );
+            init.signal?.addEventListener('abort', () => {
+              clearTimeout(timer);
+              reject(init.signal?.reason);
+            });
+          }),
+      );
+      return { client: new PDFMonkey({ apiKey: 'sk_test', fetch, maxRetries: 0 }), fetch };
+    }
+
+    it('rejects instead of returning a success that arrives after the budget', async () => {
+      const { client } = slowClient('success', 250);
+      const startedAt = Date.now();
+
+      await expect(client.documents.waitForGeneration('doc_1', { timeout: 50 })).rejects.toThrow(
+        /timed out after 50ms/,
+      );
+      expect(Date.now() - startedAt).toBeLessThan(200);
+    });
+
+    it('times out within the budget when a poll is still in flight', async () => {
+      const { client } = slowClient('generating', 250);
+      const startedAt = Date.now();
+
+      await expect(client.documents.waitForGeneration('doc_1', { timeout: 50 })).rejects.toThrow(
+        /timed out after 50ms/,
+      );
+      expect(Date.now() - startedAt).toBeLessThan(200);
+    });
+
+    it('reports caller cancellation as an abort, not a timeout', async () => {
+      const { client } = slowClient('success', 250);
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 20);
+
+      const promise = client.documents.waitForGeneration('doc_1', {
+        timeout: 10_000,
+        signal: controller.signal,
+      });
+      await expect(promise).rejects.toThrow(/aborted/);
+      await expect(promise).rejects.not.toThrow(/timed out/);
+    });
+
+    it('rejects a pre-aborted signal without polling', async () => {
+      const { client, fetch } = slowClient('success', 0);
+
+      await expect(
+        client.documents.waitForGeneration('doc_1', { signal: AbortSignal.abort() }),
+      ).rejects.toThrow('waitForGeneration aborted');
+      expect(fetch).not.toHaveBeenCalled();
+    });
   });
 
   it('rejects maxInterval < interval', async () => {
