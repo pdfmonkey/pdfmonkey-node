@@ -295,9 +295,9 @@ const folders = await client.templateFolders.list({ workspace_id: 'ws_xxx' });
 // Workspaces
 const workspaces = await client.workspaces.list();
 
-// Workspace Cards (admin plan, invite token)
-const cards = await client.workspaceCards.list({ invite_token: 'tok_xxx' });
-await client.workspaceCards.update('ws_xxx', { invite_token: null }); // regenerates the token
+// Workspace Cards (includes the admin's plan)
+const cards = await client.workspaceCards.list();
+await client.workspaceCards.update('ws_xxx', { identifier: 'New name' });
 
 // Current User
 const user = await client.currentUser.get();

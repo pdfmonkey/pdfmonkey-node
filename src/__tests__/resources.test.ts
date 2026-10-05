@@ -627,23 +627,23 @@ describe('Workspaces', () => {
 // ── Workspace Cards ────────────────────────────────────────────────────────
 
 describe('WorkspaceCards', () => {
-  it('lists workspace cards filtered by invite token', async () => {
+  it('lists workspace cards with page param', async () => {
     const { client, fetch } = createClient([
       {
         status: 200,
         body: {
           workspace_cards: [{ id: 'ws_1', identifier: 'main', current_plan: 'free' }],
-          meta: { current_page: 1, total_pages: 1, next_page: null, prev_page: null },
+          meta: { current_page: 2, total_pages: 2, next_page: null, prev_page: 1 },
         },
       },
     ]);
 
-    const page = await client.workspaceCards.list({ invite_token: 'tok' });
+    const page = await client.workspaceCards.list({ page: 2 });
 
     expect(page.data[0]?.current_plan).toBe('free');
     const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
     expect(parsed.pathname).toMatch(/\/workspace_cards$/);
-    expect(parsed.searchParams.get('q[invite_token]')).toBe('tok');
+    expect(parsed.searchParams.get('page[number]')).toBe('2');
   });
 
   it('lists all workspace cards in a single request', async () => {
@@ -656,18 +656,18 @@ describe('WorkspaceCards', () => {
     expect(new URL(fetch.mock.calls[0]?.[0] as string).searchParams.get('page')).toBe('all');
   });
 
-  it('updates a workspace card with PATCH, keeping null to regenerate the token', async () => {
+  it('updates a workspace card with PATCH', async () => {
     const { client, fetch } = createClient([
-      { status: 200, body: { workspace_card: { id: 'ws_1', invite_token: 'new' } } },
+      { status: 200, body: { workspace_card: { id: 'ws_1', identifier: 'renamed' } } },
     ]);
 
-    const card = await client.workspaceCards.update('ws_1', { invite_token: null });
+    const card = await client.workspaceCards.update('ws_1', { identifier: 'renamed' });
 
-    expect(card.invite_token).toBe('new');
+    expect(card.identifier).toBe('renamed');
     const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/workspace_cards/ws_1');
     expect(init.method).toBe('PATCH');
-    expect(JSON.parse(init.body as string)).toEqual({ workspace_card: { invite_token: null } });
+    expect(JSON.parse(init.body as string)).toEqual({ workspace_card: { identifier: 'renamed' } });
   });
 });
 

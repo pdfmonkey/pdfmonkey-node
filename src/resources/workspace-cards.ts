@@ -14,15 +14,11 @@ export interface WorkspaceCard {
 }
 
 export interface WorkspaceCardListParams {
-  /** Find the workspace matching an invite token, even one you are not a member of. */
-  invite_token?: string;
   page?: number;
 }
 
 export interface WorkspaceCardUpdateParams {
   identifier?: string;
-  /** Pass `null` to generate a new invite token. */
-  invite_token?: string | null;
 }
 
 interface WorkspaceCardResponse {
@@ -31,14 +27,14 @@ interface WorkspaceCardResponse {
 
 // ── Resource ───────────────────────────────────────────────────────────────
 
-/** Workspace summaries, including the admin's plan and the invite token. */
+/** Workspace summaries, including the admin's plan. */
 export class WorkspaceCards extends APIResource {
   /** List workspace cards. Returns a paginated result. */
   async list(
     params?: WorkspaceCardListParams,
     options?: ResourceRequestOptions,
   ): Promise<Page<WorkspaceCard>> {
-    const query = buildListQuery({ invite_token: params?.invite_token }, { page: params?.page });
+    const query = buildListQuery({}, { page: params?.page });
     return fetchPage<WorkspaceCard>(this._client, '/workspace_cards', 'workspace_cards', {
       ...options,
       query,
@@ -46,15 +42,8 @@ export class WorkspaceCards extends APIResource {
   }
 
   /** List all workspace cards in a single request. */
-  async listAll(
-    params?: Omit<WorkspaceCardListParams, 'page'>,
-    options?: ResourceRequestOptions,
-  ): Promise<WorkspaceCard[]> {
-    const query = buildListQuery({ invite_token: params?.invite_token });
-    return fetchAll<WorkspaceCard>(this._client, '/workspace_cards', 'workspace_cards', {
-      ...options,
-      query,
-    });
+  async listAll(options?: ResourceRequestOptions): Promise<WorkspaceCard[]> {
+    return fetchAll<WorkspaceCard>(this._client, '/workspace_cards', 'workspace_cards', options);
   }
 
   /** Update a workspace by ID. Uses PATCH. */
