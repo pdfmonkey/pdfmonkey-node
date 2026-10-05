@@ -5,7 +5,7 @@ import type { DocumentCard } from './document-cards.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type DocumentStatus = 'draft' | 'pending' | 'generating' | 'success' | 'failure' | 'error';
+export type DocumentStatus = 'draft' | 'pending' | 'generating' | 'success' | 'failure';
 
 export interface Document {
   readonly id: string;
@@ -299,7 +299,7 @@ export class Documents extends APIResource {
           return doc;
         }
 
-        if (doc.status === 'failure' || doc.status === 'error') {
+        if (doc.status === 'failure') {
           throw new PDFMonkeyError(
             `Document generation failed: ${doc.failure_cause ?? 'Unknown error'}`,
           );

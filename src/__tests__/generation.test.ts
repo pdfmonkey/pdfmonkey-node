@@ -106,11 +106,11 @@ describe('waitForGeneration', () => {
     ).rejects.toThrow('Template error');
   });
 
-  it('throws on error status', async () => {
+  it('throws a generic message on failure without a cause', async () => {
     const { client } = createClient([
       {
         status: 200,
-        body: { document: { ...docFixture, status: 'error', failure_cause: null } },
+        body: { document: { ...docFixture, status: 'failure', failure_cause: null } },
       },
     ]);
 

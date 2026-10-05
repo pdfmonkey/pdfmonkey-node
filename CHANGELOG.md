@@ -8,7 +8,7 @@
 
 ### Patch Changes
 
-- Fixing `workspaceCards.update()` to send `PUT` instead of `PATCH`, matching the API and the other update endpoints.
+- Fixing `workspaceCards.update()` to send `PUT` instead of `PATCH`, matching the API and the other update endpoints. Removing the `'error'` value from `DocumentStatus` (and the `document.error` webhook payload status): the API never returns it.
 - ad9d7cd: Fixing `documents.waitForGeneration()` so its `timeout` is a true total budget: in-flight polls and their retries are now aborted when it expires, instead of resolving with a late success or reporting the timeout only after a slow response came back.
 
 ## 1.3.0
