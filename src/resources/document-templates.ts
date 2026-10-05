@@ -90,7 +90,12 @@ export interface DocumentTemplateUpdateParams {
 export interface DocumentTemplateListParams {
   page?: number;
   workspace_id?: string;
+  /**
+   * `'all'` (default), `'none'` for templates outside any folder,
+   * or a comma-separated list of folder IDs.
+   */
   folders?: string;
+  /** Attribute to sort by, prefixed with `-` for descending (e.g. `'identifier'`, `'-updated_at'`). */
   sort?: string;
 }
 

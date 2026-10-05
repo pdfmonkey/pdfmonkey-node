@@ -126,7 +126,7 @@ Documents and document cards share a `DocumentStatus` type:
 
 ```ts
 import type { DocumentStatus } from 'pdfmonkey';
-// 'draft' | 'pending' | 'generating' | 'success' | 'failure' | 'error'
+// 'draft' | 'pending' | 'generating' | 'success' | 'failure'
 ```
 
 ### Document Templates
@@ -163,6 +163,9 @@ All list methods return a `Page<T>` with built-in navigation:
 
 ```ts
 const page = await client.documentCards.list({ document_template_id: 'tpl_xxx' });
+
+// Filter by filename (or exact document ID) and any of several statuses
+const inProgress = await client.documentCards.list({ search: 'invoice', status: ['pending', 'generating'] });
 
 console.log(page.data);        // items on this page
 console.log(page.currentPage); // 1

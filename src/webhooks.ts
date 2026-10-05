@@ -27,7 +27,7 @@ export interface DocumentDoneEventData {
 /** Payload shape for a `document.error` webhook event. */
 export interface DocumentErrorEventData {
   readonly id: string;
-  readonly status: 'failure' | 'error';
+  readonly status: 'failure';
   readonly failure_cause: string | null;
   readonly app_id?: string;
   readonly document_template_id?: string;

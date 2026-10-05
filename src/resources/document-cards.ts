@@ -25,7 +25,10 @@ export interface DocumentCard {
 export interface DocumentCardListParams {
   page?: number;
   document_template_id?: string;
-  status?: DocumentStatus;
+  /** A document ID matches exactly; any other text matches part of the filename (case-sensitive). */
+  search?: string;
+  /** One status, or several to match any of them. An empty array applies no status filter. */
+  status?: DocumentStatus | DocumentStatus[];
   workspace_id?: string;
   updated_since?: number;
 }
@@ -46,6 +49,7 @@ export class DocumentCards extends APIResource {
     const query = buildListQuery(
       {
         document_template_id: params?.document_template_id,
+        search: params?.search,
         status: params?.status,
         workspace_id: params?.workspace_id,
         updated_since: params?.updated_since,

@@ -170,6 +170,19 @@ describe('PDFMonkey Client', () => {
       expect(parsed.searchParams.get('page[number]')).toBe('2');
       expect(parsed.searchParams.get('status')).toBe('success');
     });
+
+    it('expands array query values as repeated key[] parameters', async () => {
+      const fetch = mockFetch(200, { data: [] });
+      const client = new PDFMonkey({ apiKey: 'sk_test', fetch });
+
+      await client.get('/documents', { query: { ids: ['a', 1, true], empty: [] } });
+
+      const [url] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+      const parsed = new URL(url);
+      expect(parsed.searchParams.getAll('ids[]')).toEqual(['a', '1', 'true']);
+      expect(parsed.searchParams.has('ids')).toBe(false);
+      expect(parsed.searchParams.has('empty[]')).toBe(false);
+    });
   });
 
   describe('error handling', () => {
