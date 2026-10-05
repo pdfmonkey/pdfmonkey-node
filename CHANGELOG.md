@@ -1,5 +1,16 @@
 # pdfmonkey
 
+## Unreleased
+
+### Minor Changes
+
+- Adding the `search` filter to `documentCards.list()` (exact document ID or partial filename) and letting `status` take several statuses. Query values now accept arrays, sent as `key[]=a&key[]=b`. Documenting the accepted `folders` and `sort` values on `documentTemplates.list()`.
+
+### Patch Changes
+
+- Fixing `workspaceCards.update()` to send `PUT` instead of `PATCH`, matching the API and the other update endpoints.
+- ad9d7cd: Fixing `documents.waitForGeneration()` so its `timeout` is a true total budget: in-flight polls and their retries are now aborted when it expires, instead of resolving with a late success or reporting the timeout only after a slow response came back.
+
 ## 1.3.0
 
 ### Minor Changes
