@@ -164,6 +164,9 @@ All list methods return a `Page<T>` with built-in navigation:
 ```ts
 const page = await client.documentCards.list({ document_template_id: 'tpl_xxx' });
 
+// Filter by filename (or exact document ID) and any of several statuses
+const failed = await client.documentCards.list({ search: 'invoice', status: ['failure', 'error'] });
+
 console.log(page.data);        // items on this page
 console.log(page.currentPage); // 1
 console.log(page.totalPages);  // 5

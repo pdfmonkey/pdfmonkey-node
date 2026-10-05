@@ -46,13 +46,13 @@ export class WorkspaceCards extends APIResource {
     return fetchAll<WorkspaceCard>(this._client, '/workspace_cards', 'workspace_cards', options);
   }
 
-  /** Update a workspace by ID. Uses PATCH. */
+  /** Update a workspace by ID. Uses PUT. */
   async update(
     id: string,
     params: WorkspaceCardUpdateParams,
     options?: ResourceRequestOptions,
   ): Promise<WorkspaceCard> {
-    const response = await this._client.patch<WorkspaceCardResponse>(
+    const response = await this._client.put<WorkspaceCardResponse>(
       `/workspace_cards/${encodeURIComponent(id)}`,
       { ...options, body: { workspace_card: params } },
     );

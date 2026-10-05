@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PDFMonkey } from '../client.js';
+import type { DocumentStatus } from '../resources/documents.js';
 
 // Hits the live API with PDFMONKEY_API_KEY. Run with `pnpm test:integration`.
 // Every resource created here is prefixed and deleted in afterAll.
@@ -208,6 +209,13 @@ describe.runIf(enabled)('live API', () => {
     it('documentCards.list', async () => {
       const page = await client.documentCards.list({ document_template_id: templateId });
       expect(page.data.map((c) => c.id)).toContain(documentId);
+    });
+
+    it('documentCards.list by search and statuses', async () => {
+      const list = (status: DocumentStatus[]) =>
+        client.documentCards.list({ workspace_id: workspaceId, search: prefix, status });
+      expect((await list(['success', 'failure'])).data.map((c) => c.id)).toContain(documentId);
+      expect((await list(['draft'])).data.map((c) => c.id)).not.toContain(documentId);
     });
 
     it('documents.generateSync', async () => {

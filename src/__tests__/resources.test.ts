@@ -360,6 +360,43 @@ describe('DocumentCards', () => {
     expect(parsed.searchParams.get('q[updated_since]')).toBe('1700000000');
   });
 
+  it('lists document cards matching a search and any of several statuses', async () => {
+    const { client, fetch } = createClient([
+      {
+        status: 200,
+        body: {
+          document_cards: [],
+          meta: { current_page: 1, total_pages: 1, next_page: null, prev_page: null },
+        },
+      },
+    ]);
+
+    await client.documentCards.list({ search: 'invoice', status: ['success', 'failure'] });
+
+    const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
+    expect(parsed.searchParams.get('q[search]')).toBe('invoice');
+    expect(parsed.searchParams.getAll('q[status][]')).toEqual(['success', 'failure']);
+    expect(parsed.searchParams.has('q[status]')).toBe(false);
+  });
+
+  it('treats an empty status array as no status filter', async () => {
+    const { client, fetch } = createClient([
+      {
+        status: 200,
+        body: {
+          document_cards: [],
+          meta: { current_page: 1, total_pages: 1, next_page: null, prev_page: null },
+        },
+      },
+    ]);
+
+    await client.documentCards.list({ status: [] });
+
+    const parsed = new URL(fetch.mock.calls[0]?.[0] as string);
+    expect(parsed.searchParams.has('q[status][]')).toBe(false);
+    expect(parsed.searchParams.has('q[status]')).toBe(false);
+  });
+
   it('lists document cards without params (empty query)', async () => {
     const { client, fetch } = createClient([
       {
@@ -656,7 +693,7 @@ describe('WorkspaceCards', () => {
     expect(new URL(fetch.mock.calls[0]?.[0] as string).searchParams.get('page')).toBe('all');
   });
 
-  it('updates a workspace card with PATCH', async () => {
+  it('updates a workspace card with PUT', async () => {
     const { client, fetch } = createClient([
       { status: 200, body: { workspace_card: { id: 'ws_1', identifier: 'renamed' } } },
     ]);
@@ -666,7 +703,7 @@ describe('WorkspaceCards', () => {
     expect(card.identifier).toBe('renamed');
     const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/workspace_cards/ws_1');
-    expect(init.method).toBe('PATCH');
+    expect(init.method).toBe('PUT');
     expect(JSON.parse(init.body as string)).toEqual({ workspace_card: { identifier: 'renamed' } });
   });
 });

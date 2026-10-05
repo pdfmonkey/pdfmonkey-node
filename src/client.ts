@@ -75,7 +75,13 @@ export interface Logger {
   error(message: string, data?: Record<string, unknown>): void;
 }
 
-export type QueryValue = string | number | boolean | null | undefined;
+export type QueryValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly (string | number | boolean)[];
 
 export interface RequestOptions {
   body?: Record<string, unknown>;
@@ -385,7 +391,10 @@ function buildURL(baseURL: string, path: string, query?: Record<string, QueryVal
   const url = new URL(`${baseURL}${normalizedPath}`);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined && value !== null) {
+      if (Array.isArray(value)) {
+        // Rails array convention: q[status][]=a&q[status][]=b
+        for (const item of value) url.searchParams.append(`${key}[]`, String(item));
+      } else if (value !== undefined && value !== null) {
         url.searchParams.set(key, String(value));
       }
     }
