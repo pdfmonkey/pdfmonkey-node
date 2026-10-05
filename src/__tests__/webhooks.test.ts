@@ -104,8 +104,7 @@ describe('RestHooks', () => {
 // ── Webhook Verification ──────────────────────────────────────────────────
 
 describe('verifyWebhook', () => {
-  const payload =
-    '{"type":"document.done","data":{"id":"doc_1"},"timestamp":"2026-01-01T00:00:00Z"}';
+  const payload = '{"document":{"id":"doc_1","status":"success"}}';
   const msgId = 'msg_123';
 
   it('verifies a valid signature', async () => {
@@ -122,8 +121,7 @@ describe('verifyWebhook', () => {
       SECRET,
     );
 
-    expect(event.type).toBe('document.done');
-    expect(event.data.id).toBe('doc_1');
+    expect(event).toEqual({ document: { id: 'doc_1', status: 'success' } });
   });
 
   it('accepts secret without whsec_ prefix', async () => {
@@ -140,7 +138,7 @@ describe('verifyWebhook', () => {
       SECRET_RAW,
     );
 
-    expect(event.type).toBe('document.done');
+    expect('document' in event).toBe(true);
   });
 
   it('rejects an invalid signature', async () => {
@@ -235,7 +233,7 @@ describe('verifyWebhook', () => {
       SECRET,
     );
 
-    expect(event.type).toBe('document.done');
+    expect('document' in event).toBe(true);
   });
 
   it('rejects signature with v2 prefix (not v1)', async () => {
@@ -307,41 +305,35 @@ describe('verifyWebhook', () => {
     ).rejects.toThrow('Webhook payload is not valid JSON');
   });
 
-  it('rejects payload missing required WebhookEvent fields', async () => {
+  it('rejects a JSON payload that is not an object', async () => {
     const timestamp = String(Math.floor(Date.now() / 1000));
 
-    // Missing type
-    const noType = '{"data":{},"timestamp":"2026-01-01T00:00:00Z"}';
-    const sig1 = await sign(msgId, timestamp, noType);
-    await expect(
-      verifyWebhook(
-        noType,
-        { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': sig1 },
-        SECRET,
-      ),
-    ).rejects.toThrow('Webhook payload does not match expected WebhookEvent structure');
+    for (const body of ['[]', '"text"', 'null']) {
+      const signature = await sign(msgId, timestamp, body);
+      await expect(
+        verifyWebhook(
+          body,
+          { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': signature },
+          SECRET,
+        ),
+      ).rejects.toThrow('Webhook payload is not a JSON object');
+    }
+  });
 
-    // Missing data
-    const noData = '{"type":"document.done","timestamp":"2026-01-01T00:00:00Z"}';
-    const sig2 = await sign(msgId, timestamp, noData);
-    await expect(
-      verifyWebhook(
-        noData,
-        { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': sig2 },
-        SECRET,
-      ),
-    ).rejects.toThrow('Webhook payload does not match expected WebhookEvent structure');
+  it('returns a quota.warning payload as-is', async () => {
+    const body =
+      '{"period_start":"2026-10-01T00:00:00Z","period_end":"2026-11-01T00:00:00Z","available_documents":100,"threshold":80}';
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = await sign(msgId, timestamp, body);
 
-    // Missing timestamp
-    const noTs = '{"type":"document.done","data":{}}';
-    const sig3 = await sign(msgId, timestamp, noTs);
-    await expect(
-      verifyWebhook(
-        noTs,
-        { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': sig3 },
-        SECRET,
-      ),
-    ).rejects.toThrow('Webhook payload does not match expected WebhookEvent structure');
+    const result = await verifyWebhook(
+      body,
+      { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': signature },
+      SECRET,
+    );
+
+    expect('document' in result).toBe(false);
+    expect(result).toMatchObject({ available_documents: 100, threshold: 80 });
   });
 
   it('rejects tolerance <= 0', async () => {
@@ -408,6 +400,6 @@ describe('verifyWebhook', () => {
       SECRET,
     );
 
-    expect(event.type).toBe('document.done');
+    expect('document' in event).toBe(true);
   });
 });

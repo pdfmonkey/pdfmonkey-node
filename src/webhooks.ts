@@ -1,4 +1,5 @@
 import { PDFMonkeyError } from './error.js';
+import type { DocumentCard } from './resources/document-cards.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -8,53 +9,25 @@ export interface WebhookHeaders {
   'svix-signature': string;
 }
 
-export type WebhookEventType = 'document.done' | 'document.error' | (string & {});
-
-/** Payload shape for a `document.done` webhook event. */
-export interface DocumentDoneEventData {
-  readonly id: string;
-  readonly status: 'success';
-  readonly download_url: string;
-  readonly filename: string | null;
-  readonly preview_url?: string;
-  readonly checksum?: string;
-  readonly app_id?: string;
-  readonly document_template_id?: string;
-  readonly meta?: string | null;
-  readonly [key: string]: unknown;
+/**
+ * Body of a `documents.generation.success` or `documents.generation.failure`
+ * webhook: the document card, as returned by `documentCards.get()`. Svix does
+ * not put the event type in the body, so tell them apart with `document.status`.
+ */
+export interface DocumentWebhookPayload {
+  readonly document: DocumentCard;
 }
 
-/** Payload shape for a `document.error` webhook event. */
-export interface DocumentErrorEventData {
-  readonly id: string;
-  readonly status: 'failure';
-  readonly failure_cause: string | null;
-  readonly app_id?: string;
-  readonly document_template_id?: string;
-  readonly meta?: string | null;
-  readonly [key: string]: unknown;
+/** Body of a `quota.warning` webhook. */
+export interface QuotaWarningWebhookPayload {
+  readonly period_start: string;
+  readonly period_end: string;
+  readonly available_documents: number;
+  readonly threshold: number;
 }
 
-export interface DocumentDoneEvent {
-  readonly type: 'document.done';
-  readonly data: DocumentDoneEventData;
-  readonly timestamp: string;
-}
-
-export interface DocumentErrorEvent {
-  readonly type: 'document.error';
-  readonly data: DocumentErrorEventData;
-  readonly timestamp: string;
-}
-
-/** Catch-all for forward-compatible event types. */
-export interface UnknownWebhookEvent {
-  readonly type: string & {};
-  readonly data: Readonly<Record<string, unknown>>;
-  readonly timestamp: string;
-}
-
-export type WebhookEvent = DocumentDoneEvent | DocumentErrorEvent | UnknownWebhookEvent;
+/** Body of a verified webhook. Narrow with `'document' in payload`. */
+export type WebhookPayload = DocumentWebhookPayload | QuotaWarningWebhookPayload;
 
 export interface VerifyWebhookOptions {
   /** Tolerance in seconds for timestamp validation. Default: 300 (5 minutes). */
@@ -75,12 +48,12 @@ const WHSEC_PREFIX = 'whsec_';
  * @param headers - The Svix webhook headers
  * @param secret - The webhook signing secret (with or without `whsec_` prefix)
  * @param options - Optional verification options (tolerance)
- * @returns The parsed webhook event
+ * @returns The parsed webhook payload
  * @throws PDFMonkeyError if verification fails
  *
  * @example
  * ```ts
- * const event = await verifyWebhook(
+ * const payload = await verifyWebhook(
  *   rawBody,
  *   {
  *     'svix-id': req.headers['svix-id'],
@@ -89,8 +62,8 @@ const WHSEC_PREFIX = 'whsec_';
  *   },
  *   process.env.WEBHOOK_SECRET,
  * );
- * if (event.type === 'document.done') {
- *   console.log(event.data.download_url);
+ * if ('document' in payload && payload.document.status === 'success') {
+ *   console.log(payload.document.download_url);
  * }
  * ```
  */
@@ -99,7 +72,7 @@ export async function verifyWebhook(
   headers: WebhookHeaders,
   secret: string,
   options?: VerifyWebhookOptions,
-): Promise<WebhookEvent> {
+): Promise<WebhookPayload> {
   const msgId = headers['svix-id'];
   const msgTimestamp = headers['svix-timestamp'];
   const msgSignature = headers['svix-signature'];
@@ -156,18 +129,10 @@ export async function verifyWebhook(
       } catch {
         throw new PDFMonkeyError('Webhook payload is not valid JSON');
       }
-      const record = parsed as Record<string, unknown>;
-      if (
-        typeof parsed !== 'object' ||
-        parsed === null ||
-        typeof record.type !== 'string' ||
-        typeof record.data !== 'object' ||
-        record.data === null ||
-        typeof record.timestamp !== 'string'
-      ) {
-        throw new PDFMonkeyError('Webhook payload does not match expected WebhookEvent structure');
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new PDFMonkeyError('Webhook payload is not a JSON object');
       }
-      return parsed as WebhookEvent;
+      return parsed as WebhookPayload;
     }
   }
 
