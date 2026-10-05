@@ -448,11 +448,14 @@ describe('DocumentTemplates', () => {
       { status: 201, body: { document_template: { id: 'tpl_new', identifier: 'receipt' } } },
     ]);
 
-    const tpl = await client.documentTemplates.create({ identifier: 'receipt' });
+    const tpl = await client.documentTemplates.create({
+      identifier: 'receipt',
+      workspace_id: 'ws_1',
+    });
     expect(tpl.id).toBe('tpl_new');
     const [, init] = fetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.document_template.identifier).toBe('receipt');
+    expect(body.document_template).toEqual({ identifier: 'receipt', app_id: 'ws_1' });
   });
 
   it('updates a template', async () => {
@@ -534,12 +537,19 @@ describe('TemplateFolders', () => {
   });
 
   it('creates a folder', async () => {
-    const { client } = createClient([
+    const { client, fetch } = createClient([
       { status: 201, body: { template_folder: { id: 'fold_new', identifier: 'reports' } } },
     ]);
 
-    const folder = await client.templateFolders.create({ identifier: 'reports' });
+    const folder = await client.templateFolders.create({
+      identifier: 'reports',
+      workspace_id: 'ws_1',
+    });
     expect(folder.identifier).toBe('reports');
+    const [, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      template_folder: { identifier: 'reports', app_id: 'ws_1' },
+    });
   });
 
   it('updates a folder', async () => {
@@ -566,7 +576,7 @@ describe('Workspaces', () => {
       {
         status: 200,
         body: {
-          workspaces: [{ id: 'ws_1' }],
+          apps: [{ id: 'ws_1' }],
           meta: { current_page: 2, total_pages: 3, next_page: 3, prev_page: 1 },
         },
       },
@@ -584,7 +594,7 @@ describe('Workspaces', () => {
       {
         status: 200,
         body: {
-          workspaces: [{ id: 'ws_1', identifier: 'main' }],
+          apps: [{ id: 'ws_1', identifier: 'main' }],
           meta: { current_page: 1, total_pages: 1, next_page: null, prev_page: null },
         },
       },
@@ -596,7 +606,7 @@ describe('Workspaces', () => {
 
   it('gets a workspace by ID', async () => {
     const { client } = createClient([
-      { status: 200, body: { workspace: { id: 'ws_1', identifier: 'main' } } },
+      { status: 200, body: { app: { id: 'ws_1', identifier: 'main' } } },
     ]);
 
     const ws = await client.workspaces.get('ws_1');
@@ -605,7 +615,7 @@ describe('Workspaces', () => {
 
   it('lists all workspaces in a single request', async () => {
     const { client, fetch } = createClient([
-      { status: 200, body: { workspaces: [{ id: 'ws_1' }, { id: 'ws_2' }] } },
+      { status: 200, body: { apps: [{ id: 'ws_1' }, { id: 'ws_2' }] } },
     ]);
 
     const workspaces = await client.workspaces.listAll();
@@ -820,7 +830,7 @@ describe('Path parameter encoding', () => {
   });
 
   it('encodes special characters in workspace IDs', async () => {
-    const { client, fetch } = createClient([{ status: 200, body: { workspace: { id: 'a/b' } } }]);
+    const { client, fetch } = createClient([{ status: 200, body: { app: { id: 'a/b' } } }]);
 
     await client.workspaces.get('a/b');
 

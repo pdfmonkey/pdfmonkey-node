@@ -6,15 +6,15 @@ import { APIResource } from '../resource.js';
 
 export interface Workspace {
   readonly id: string;
-  readonly created_at: string;
   readonly identifier: string;
   readonly invite_token: string;
-  readonly updated_at: string;
 }
 
 export interface WorkspaceListParams {
   page?: number;
 }
+
+// Workspaces are still called "apps" in API payloads.
 
 // ── Resource ───────────────────────────────────────────────────────────────
 
@@ -26,20 +26,20 @@ export class Workspaces extends APIResource {
     options?: ResourceRequestOptions,
   ): Promise<Page<Workspace>> {
     const query = buildListQuery({}, { page: params?.page });
-    return fetchPage<Workspace>(this._client, '/workspaces', 'workspaces', { ...options, query });
+    return fetchPage<Workspace>(this._client, '/workspaces', 'apps', { ...options, query });
   }
 
   /** List all workspaces in a single request. */
   async listAll(options?: ResourceRequestOptions): Promise<Workspace[]> {
-    return fetchAll<Workspace>(this._client, '/workspaces', 'workspaces', options);
+    return fetchAll<Workspace>(this._client, '/workspaces', 'apps', options);
   }
 
   /** Retrieve a workspace by ID. */
   async get(id: string, options?: ResourceRequestOptions): Promise<Workspace> {
-    const response = await this._client.get<{ workspace: Workspace }>(
+    const response = await this._client.get<{ app: Workspace }>(
       `/workspaces/${encodeURIComponent(id)}`,
       options,
     );
-    return response.workspace;
+    return response.app;
   }
 }

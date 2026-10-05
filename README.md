@@ -134,7 +134,10 @@ import type { DocumentStatus } from 'pdfmonkey';
 ```ts
 const page = await client.documentTemplates.list({ workspace_id: 'ws_xxx' });
 const template = await client.documentTemplates.get('tpl_xxx');
-const created = await client.documentTemplates.create({ identifier: 'invoice' });
+const created = await client.documentTemplates.create({
+  identifier: 'invoice',
+  workspace_id: 'ws_xxx',
+});
 const updated = await client.documentTemplates.update('tpl_xxx', { identifier: 'receipt' });
 await client.documentTemplates.delete('tpl_xxx');
 ```
@@ -186,7 +189,8 @@ Register webhook endpoints:
 ```ts
 const hook = await client.restHooks.create({
   url: 'https://example.com/webhook',
-  events: ['document.done'],
+  workspace_id: 'ws_xxx',
+  events: ['documents.generation.success', 'documents.generation.failure'],
 });
 
 await client.restHooks.delete(hook.id);

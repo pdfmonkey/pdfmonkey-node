@@ -135,7 +135,10 @@ const card = await client.documentCards.get('card_xxx');
 ```ts
 const page = await client.documentTemplates.list({ workspace_id: 'ws_xxx' });
 const tpl = await client.documentTemplates.get('tpl_xxx');
-const created = await client.documentTemplates.create({ identifier: 'invoice' });
+const created = await client.documentTemplates.create({
+  identifier: 'invoice',
+  workspace_id: 'ws_xxx',
+});
 const updated = await client.documentTemplates.update('tpl_xxx', { identifier: 'receipt' });
 await client.documentTemplates.delete('tpl_xxx');
 ```
@@ -161,7 +164,10 @@ const engines = await client.pdfEngines.list();
 ```ts
 const page = await client.templateFolders.list({ workspace_id: 'ws_xxx' });
 const folder = await client.templateFolders.get('fold_xxx');
-const created = await client.templateFolders.create({ identifier: 'invoices' });
+const created = await client.templateFolders.create({
+  identifier: 'invoices',
+  workspace_id: 'ws_xxx',
+});
 const updated = await client.templateFolders.update('fold_xxx', { identifier: 'reports' });
 await client.templateFolders.delete('fold_xxx');
 ```
@@ -202,9 +208,10 @@ const user = await client.currentUser.get();
 // Register a webhook
 const hook = await client.restHooks.create({
   url: 'https://example.com/webhook',
-  events: ['document.done'],
-  workspace_id: 'ws_xxx',              // optional
-  document_template_ids: ['tpl_xxx'],   // optional
+  workspace_id: 'ws_xxx',
+  events: ['documents.generation.success', 'documents.generation.failure'],
+  document_template_ids: ['tpl_xxx'],   // optional, defaults to every template
+  custom_channel: 'invoices',           // optional
 });
 
 // Delete a webhook
