@@ -7,6 +7,7 @@ import { PdfEngines } from './resources/pdf-engines.js';
 import { RestHooks } from './resources/rest-hooks.js';
 import { Snippets } from './resources/snippets.js';
 import { TemplateFolders } from './resources/template-folders.js';
+import { WorkspaceCards } from './resources/workspace-cards.js';
 import { Workspaces } from './resources/workspaces.js';
 import { VERSION } from './version.js';
 
@@ -143,6 +144,7 @@ export class PDFMonkey {
   readonly restHooks: RestHooks;
   readonly templateFolders: TemplateFolders;
   readonly workspaces: Workspaces;
+  readonly workspaceCards: WorkspaceCards;
   readonly snippets: Snippets;
   readonly currentUser: CurrentUserResource;
 
@@ -188,6 +190,7 @@ export class PDFMonkey {
     this.restHooks = new RestHooks(this);
     this.templateFolders = new TemplateFolders(this);
     this.workspaces = new Workspaces(this);
+    this.workspaceCards = new WorkspaceCards(this);
     this.snippets = new Snippets(this);
     this.currentUser = new CurrentUserResource(this);
   }

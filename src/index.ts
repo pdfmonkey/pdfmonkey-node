@@ -77,6 +77,12 @@ export type {
   TemplateFolderUpdateParams,
 } from './resources/template-folders.js';
 export { TemplateFolders } from './resources/template-folders.js';
+export type {
+  WorkspaceCard,
+  WorkspaceCardListParams,
+  WorkspaceCardUpdateParams,
+} from './resources/workspace-cards.js';
+export { WorkspaceCards } from './resources/workspace-cards.js';
 export type { Workspace, WorkspaceListParams } from './resources/workspaces.js';
 export { Workspaces } from './resources/workspaces.js';
 export { VERSION } from './version.js';

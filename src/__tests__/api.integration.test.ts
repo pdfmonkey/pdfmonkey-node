@@ -43,6 +43,21 @@ describe.runIf(enabled)('live API', () => {
     });
   });
 
+  describe('workspaceCards', () => {
+    it('list', async () => {
+      const page = await client.workspaceCards.list();
+      const card = page.data.find((c) => c.id === workspaceId);
+      expect(card?.invite_token).toBeTruthy();
+      expect(card?.current_plan).toBeTruthy();
+    });
+
+    it('listAll filtered by invite token', async () => {
+      const [card] = await client.workspaceCards.listAll();
+      const matches = await client.workspaceCards.listAll({ invite_token: card?.invite_token });
+      expect(matches.map((c) => c.id)).toEqual([card?.id]);
+    });
+  });
+
   it('pdfEngines.list', async () => {
     const engines = await client.pdfEngines.list();
     expect(engines.length).toBeGreaterThan(0);

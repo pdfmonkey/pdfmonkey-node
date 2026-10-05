@@ -173,7 +173,7 @@ if (page.hasNextPage()) {
 }
 ```
 
-Workspaces, document templates, snippets and template folders also expose `listAll()`, which fetches every item in a single request (`page=all`) and returns a plain array. Document cards do not support it, so iterate with `for await (const card of page)` instead.
+Workspaces, workspace cards, document templates, snippets and template folders also expose `listAll()`, which fetches every item in a single request (`page=all`) and returns a plain array. Document cards do not support it, so iterate with `for await (const card of page)` instead.
 
 ```ts
 const workspaces = await client.workspaces.listAll();
@@ -294,6 +294,10 @@ const folders = await client.templateFolders.list({ workspace_id: 'ws_xxx' });
 
 // Workspaces
 const workspaces = await client.workspaces.list();
+
+// Workspace Cards (admin plan, invite token)
+const cards = await client.workspaceCards.list({ invite_token: 'tok_xxx' });
+await client.workspaceCards.update('ws_xxx', { invite_token: null }); // regenerates the token
 
 // Current User
 const user = await client.currentUser.get();
