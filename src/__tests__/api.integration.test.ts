@@ -43,6 +43,19 @@ describe.runIf(enabled)('live API', () => {
     });
   });
 
+  describe('workspaceCards', () => {
+    it('list', async () => {
+      const page = await client.workspaceCards.list();
+      const card = page.data.find((c) => c.id === workspaceId);
+      expect(card?.current_plan).toBeTruthy();
+    });
+
+    it('listAll', async () => {
+      const cards = await client.workspaceCards.listAll();
+      expect(cards.map((c) => c.id)).toContain(workspaceId);
+    });
+  });
+
   it('pdfEngines.list', async () => {
     const engines = await client.pdfEngines.list();
     expect(engines.length).toBeGreaterThan(0);
