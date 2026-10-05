@@ -8,11 +8,13 @@ const enabled = process.env.PDFMONKEY_INTEGRATION === '1';
 const prefix = `sdk-node-it-${Date.now()}`;
 
 describe.runIf(enabled)('live API', () => {
-  const client = new PDFMonkey();
+  // Built in beforeAll: the describe body runs at collection even when skipped.
+  let client: PDFMonkey;
   const cleanup: Array<() => Promise<void>> = [];
   let workspaceId: string;
 
   beforeAll(async () => {
+    client = new PDFMonkey();
     const workspaces = await client.workspaces.listAll();
     expect(workspaces.length).toBeGreaterThan(0);
     workspaceId = (workspaces[0] as { id: string }).id;
