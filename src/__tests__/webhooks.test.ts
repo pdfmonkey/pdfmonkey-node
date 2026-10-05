@@ -104,8 +104,24 @@ describe('RestHooks', () => {
 // ── Webhook Verification ──────────────────────────────────────────────────
 
 describe('verifyWebhook', () => {
-  const payload =
-    '{"type":"document.done","data":{"id":"doc_1"},"timestamp":"2026-01-01T00:00:00Z"}';
+  // Real delivery body: the document card under a `document` key
+  const card = {
+    id: 'a5e86d72-f5b7-43d4-a04e-8b7e08e6741c',
+    app_id: 'd6b4e8f2-7a3c-4d1e-9f5b-2c8a1d3e6f90',
+    created_at: '2050-03-13T12:34:56.181+02:00',
+    document_template_id: '2903f5b4-623b-4e10-b2e3-dc7e2e67ea39',
+    document_template_identifier: 'My Invoice Template',
+    download_url: 'https://pdfmonkey.s3.eu-west-1.amazonaws.com/doc.pdf',
+    failure_cause: null,
+    filename: '2050-03-14 Peter Parker.pdf',
+    meta: '{"_filename":"2050-03-14 Peter Parker.pdf","clientRef":"spidey-616"}',
+    output_type: 'pdf',
+    preview_url: 'https://preview.pdfmonkey.io/doc',
+    public_share_link: null,
+    status: 'success',
+    updated_at: '2050-03-13T12:34:59.412+02:00',
+  };
+  const payload = JSON.stringify({ document: card });
   const msgId = 'msg_123';
 
   it('verifies a valid signature', async () => {
@@ -122,8 +138,7 @@ describe('verifyWebhook', () => {
       SECRET,
     );
 
-    expect(event.type).toBe('document.done');
-    expect(event.data.id).toBe('doc_1');
+    expect(event).toEqual({ document: card });
   });
 
   it('accepts secret without whsec_ prefix', async () => {
@@ -140,7 +155,7 @@ describe('verifyWebhook', () => {
       SECRET_RAW,
     );
 
-    expect(event.type).toBe('document.done');
+    expect('document' in event).toBe(true);
   });
 
   it('rejects an invalid signature', async () => {
@@ -235,7 +250,7 @@ describe('verifyWebhook', () => {
       SECRET,
     );
 
-    expect(event.type).toBe('document.done');
+    expect('document' in event).toBe(true);
   });
 
   it('rejects signature with v2 prefix (not v1)', async () => {
@@ -307,41 +322,53 @@ describe('verifyWebhook', () => {
     ).rejects.toThrow('Webhook payload is not valid JSON');
   });
 
-  it('rejects payload missing required WebhookEvent fields', async () => {
+  it('rejects a JSON payload that is not an object', async () => {
     const timestamp = String(Math.floor(Date.now() / 1000));
 
-    // Missing type
-    const noType = '{"data":{},"timestamp":"2026-01-01T00:00:00Z"}';
-    const sig1 = await sign(msgId, timestamp, noType);
-    await expect(
-      verifyWebhook(
-        noType,
-        { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': sig1 },
-        SECRET,
-      ),
-    ).rejects.toThrow('Webhook payload does not match expected WebhookEvent structure');
+    for (const body of ['[]', '"text"', 'null']) {
+      const signature = await sign(msgId, timestamp, body);
+      await expect(
+        verifyWebhook(
+          body,
+          { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': signature },
+          SECRET,
+        ),
+      ).rejects.toThrow('Webhook payload is not a JSON object');
+    }
+  });
 
-    // Missing data
-    const noData = '{"type":"document.done","timestamp":"2026-01-01T00:00:00Z"}';
-    const sig2 = await sign(msgId, timestamp, noData);
-    await expect(
-      verifyWebhook(
-        noData,
-        { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': sig2 },
-        SECRET,
-      ),
-    ).rejects.toThrow('Webhook payload does not match expected WebhookEvent structure');
+  it('returns a failure payload with its failure_cause', async () => {
+    const body = JSON.stringify({
+      document: { ...card, status: 'failure', download_url: null, failure_cause: 'Template error' },
+    });
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = await sign(msgId, timestamp, body);
 
-    // Missing timestamp
-    const noTs = '{"type":"document.done","data":{}}';
-    const sig3 = await sign(msgId, timestamp, noTs);
-    await expect(
-      verifyWebhook(
-        noTs,
-        { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': sig3 },
-        SECRET,
-      ),
-    ).rejects.toThrow('Webhook payload does not match expected WebhookEvent structure');
+    const result = await verifyWebhook(
+      body,
+      { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': signature },
+      SECRET,
+    );
+
+    if (!('document' in result)) throw new Error('expected a document payload');
+    expect(result.document.status).toBe('failure');
+    expect(result.document.failure_cause).toBe('Template error');
+  });
+
+  it('returns a quota.warning payload as-is', async () => {
+    const body =
+      '{"period_start":"2026-10-01T00:00:00Z","period_end":"2026-11-01T00:00:00Z","available_documents":100,"threshold":80}';
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = await sign(msgId, timestamp, body);
+
+    const result = await verifyWebhook(
+      body,
+      { 'svix-id': msgId, 'svix-timestamp': timestamp, 'svix-signature': signature },
+      SECRET,
+    );
+
+    expect('document' in result).toBe(false);
+    expect(result).toMatchObject({ available_documents: 100, threshold: 80 });
   });
 
   it('rejects tolerance <= 0', async () => {
@@ -408,6 +435,6 @@ describe('verifyWebhook', () => {
       SECRET,
     );
 
-    expect(event.type).toBe('document.done');
+    expect('document' in event).toBe(true);
   });
 });

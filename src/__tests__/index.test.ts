@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DocumentStatus, HttpMethod, QueryValue, WebhookEventType } from '../index.js';
+import type { DocumentStatus, HttpMethod, QueryValue, WebhookPayload } from '../index.js';
 import {
   APIConnectionError,
   APIError,
@@ -82,8 +82,13 @@ describe('Barrel exports', () => {
     expect(value).toBe(42);
   });
 
-  it('exports WebhookEventType type', () => {
-    const eventType: WebhookEventType = 'document.done';
-    expect(eventType).toBe('document.done');
+  it('exports WebhookPayload type', () => {
+    const payload: WebhookPayload = {
+      period_start: '2026-10-01T00:00:00Z',
+      period_end: '2026-11-01T00:00:00Z',
+      available_documents: 100,
+      threshold: 80,
+    };
+    expect('document' in payload).toBe(false);
   });
 });

@@ -204,7 +204,7 @@ Verify incoming webhook signatures (Svix HMAC-SHA256):
 ```ts
 import { verifyWebhook } from 'pdfmonkey';
 
-const event = await verifyWebhook(
+const payload = await verifyWebhook(
   rawBody,
   {
     'svix-id': req.headers['svix-id'],
@@ -214,11 +214,15 @@ const event = await verifyWebhook(
   process.env.WEBHOOK_SECRET,
 );
 
-// `WebhookEvent` is a discriminated union — narrow on `type`
-if (event.type === 'document.done') {
-  console.log(event.data.download_url);
-} else if (event.type === 'document.error') {
-  console.log(event.data.failure_cause);
+// Generation events carry the document card; `quota.warning` carries usage figures
+if ('document' in payload) {
+  if (payload.document.status === 'success') {
+    console.log(payload.document.download_url);
+  } else {
+    console.log(payload.document.failure_cause);
+  }
+} else {
+  console.log(`${payload.available_documents} documents left`);
 }
 ```
 
@@ -239,7 +243,7 @@ app.post(
   express.raw({ type: 'application/json' }),
   async (req, res) => {
     try {
-      const event = await verifyWebhook(
+      const payload = await verifyWebhook(
         req.body.toString('utf8'),
         {
           'svix-id': req.header('svix-id') ?? '',
@@ -248,7 +252,7 @@ app.post(
         },
         process.env.WEBHOOK_SECRET ?? '',
       );
-      // handle event
+      // handle payload
       res.status(204).end();
     } catch {
       res.status(400).send('Invalid signature');
@@ -268,7 +272,7 @@ export const runtime = 'nodejs';
 export async function POST(request: Request): Promise<Response> {
   const rawBody = await request.text();
   try {
-    const event = await verifyWebhook(
+    const payload = await verifyWebhook(
       rawBody,
       {
         'svix-id': request.headers.get('svix-id') ?? '',
@@ -277,7 +281,7 @@ export async function POST(request: Request): Promise<Response> {
       },
       process.env.WEBHOOK_SECRET ?? '',
     );
-    // handle event
+    // handle payload
     return new Response(null, { status: 204 });
   } catch {
     return new Response('Invalid signature', { status: 400 });

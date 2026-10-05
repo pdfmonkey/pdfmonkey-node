@@ -87,14 +87,10 @@ export type { Workspace, WorkspaceListParams } from './resources/workspaces.js';
 export { Workspaces } from './resources/workspaces.js';
 export { VERSION } from './version.js';
 export type {
-  DocumentDoneEvent,
-  DocumentDoneEventData,
-  DocumentErrorEvent,
-  DocumentErrorEventData,
-  UnknownWebhookEvent,
+  DocumentWebhookPayload,
+  QuotaWarningWebhookPayload,
   VerifyWebhookOptions,
-  WebhookEvent,
-  WebhookEventType,
   WebhookHeaders,
+  WebhookPayload,
 } from './webhooks.js';
 export { verifyWebhook } from './webhooks.js';
